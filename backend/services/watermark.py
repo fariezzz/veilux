@@ -275,9 +275,14 @@ def get_payload_positions(
 
 
 # --- Embedding ---
-def embed_watermark(image: Image.Image, watermark: str, secret_key: str) -> Dict[str, Any]:
+def embed_watermark(
+    image: Image.Image,
+    watermark: Union[str, bytes],
+    secret_key: str,
+) -> Dict[str, Any]:
     """
-    Sisipkan watermark VLX v2 ke dalam citra menggunakan LSB fragile.
+    Sisipkan watermark ke dalam citra menggunakan LSB fragile.
+    Mendukung payload teks (str) maupun paket biner terstruktur (bytes).
 
     Alur: normalisasi RGB → partisi blok → hitung & sisipkan block tag per blok →
     kumpulkan kanal sisa → serialisasi payload → sisipkan payload → rekonstruksi stego.
@@ -323,7 +328,10 @@ def embed_watermark(image: Image.Image, watermark: str, secret_key: str) -> Dict
         is_tag_channel[all_tag_positions] = True
     available_channels = np.where(~is_tag_channel)[0]
 
-    packet_bytes = serialize_payload(watermark=watermark, secret_key=secret_key)
+    if isinstance(watermark, bytes):
+        packet_bytes = watermark
+    else:
+        packet_bytes = serialize_payload(watermark=watermark, secret_key=secret_key)
     payload_bits = bytes_to_bits(packet_bytes)
 
     payload_positions = get_payload_positions(available_channels, len(payload_bits), secret_key)
@@ -347,12 +355,15 @@ def detect_watermark(
     image: Image.Image,
     secret_key: str,
     original_watermark: Optional[str] = None,
+    original_logo: Optional[Union[Image.Image, np.ndarray, bytes]] = None,
 ) -> Dict[str, Any]:
     """
-    Deteksi integritas citra, hasilkan tamper map, dan ekstrak watermark.
+    Deteksi integritas citra, hasilkan tamper map, dan ekstrak watermark (TEXT atau LOGO).
 
     Tamper map: putih (255,255,255) = blok valid, merah (255,0,0) = blok rusak.
-    NC dan BER hanya dihitung jika original_watermark disediakan.
+    NC dan BER dihitung terhadap referensi yang sesuai tipenya:
+    - TEXT: dibandingkan dengan original_watermark (string).
+    - LOGO: dibandingkan antara normalize_logo(original_logo) vs binary logo hasil ekstraksi.
     Kegagalan deteksi tidak melempar exception — dikembalikan sebagai watermark_detected=False.
     """
     if not isinstance(image, Image.Image):
@@ -409,48 +420,139 @@ def detect_watermark(
     available_channels = np.where(~is_tag_channel)[0]
 
     watermark_detected = False
+    watermark_type: Optional[str] = None
     extracted_watermark: Optional[str] = None
+    extracted_logo: Optional[Image.Image] = None
+    logo_width: Optional[int] = None
+    logo_height: Optional[int] = None
+    binary_logo: Optional[np.ndarray] = None
 
     try:
-        header_bits_count = HEADER_LEN * 8
-        if len(available_channels) >= header_bits_count:
-            header_positions = get_payload_positions(available_channels, header_bits_count, secret_key)
-            header_bytes = bits_to_bytes(flat_channels[header_positions] & 1)
+        from backend.services.logo import (
+            HEADER_LEN_V3,
+            HEADER_STRUCT_V3,
+            PROTOCOL_VERSION_V3,
+            WatermarkType,
+            parse_watermark_packet,
+        )
 
-            if header_bytes[:3] == MAGIC_MARKER and header_bytes[3] == PROTOCOL_VERSION:
-                payload_len = struct.unpack(">H", header_bytes[4:HEADER_LEN])[0]
-                total_packet_bits = (HEADER_LEN + payload_len + HMAC_TAG_LEN) * 8
+        if len(available_channels) >= 32:
+            ver_positions = get_payload_positions(available_channels, 32, secret_key)
+            ver_bytes = bits_to_bytes(flat_channels[ver_positions] & 1)
 
-                if total_packet_bits <= len(available_channels):
-                    packet_positions = get_payload_positions(available_channels, total_packet_bits, secret_key)
-                    packet_bytes = bits_to_bytes(flat_channels[packet_positions] & 1)
-                    extracted_watermark = parse_payload(packet_bytes, secret_key)
+            if ver_bytes[:3] == MAGIC_MARKER:
+                ver = ver_bytes[3]
+                packet_bytes: Optional[bytes] = None
+
+                if ver == PROTOCOL_VERSION:
+                    if len(available_channels) >= 48:
+                        h_pos = get_payload_positions(available_channels, 48, secret_key)
+                        h_bytes = bits_to_bytes(flat_channels[h_pos] & 1)
+                        payload_len = struct.unpack(">H", h_bytes[4:6])[0]
+                        total_bits = (6 + payload_len + HMAC_TAG_LEN) * 8
+                        if total_bits <= len(available_channels):
+                            pkt_pos = get_payload_positions(available_channels, total_bits, secret_key)
+                            packet_bytes = bits_to_bytes(flat_channels[pkt_pos] & 1)
+
+                elif ver == PROTOCOL_VERSION_V3:
+                    header_bits_v3 = HEADER_LEN_V3 * 8
+                    if len(available_channels) >= header_bits_v3:
+                        h_pos = get_payload_positions(available_channels, header_bits_v3, secret_key)
+                        h_bytes = bits_to_bytes(flat_channels[h_pos] & 1)
+                        _, _, _, _, _, payload_len = struct.unpack(HEADER_STRUCT_V3, h_bytes[:HEADER_LEN_V3])
+                        total_bits = (HEADER_LEN_V3 + payload_len + HMAC_TAG_LEN) * 8
+                        if total_bits <= len(available_channels):
+                            pkt_pos = get_payload_positions(available_channels, total_bits, secret_key)
+                            packet_bytes = bits_to_bytes(flat_channels[pkt_pos] & 1)
+
+                if packet_bytes is not None:
+                    parsed_res = parse_watermark_packet(packet_bytes, secret_key)
                     watermark_detected = True
+                    if parsed_res["type"] == WatermarkType.TEXT:
+                        watermark_type = "TEXT"
+                        extracted_watermark = parsed_res["text"]
+                    elif parsed_res["type"] == WatermarkType.LOGO:
+                        watermark_type = "LOGO"
+                        extracted_watermark = f"[LOGO {parsed_res['width']}x{parsed_res['height']}]"
+                        extracted_logo = parsed_res["reconstructed_image"]
+                        logo_width = parsed_res["width"]
+                        logo_height = parsed_res["height"]
+                        binary_logo = parsed_res["binary_logo"]
     except Exception:
         pass
 
     nc: Optional[float] = None
     ber: Optional[float] = None
 
-    if original_watermark and isinstance(original_watermark, str):
-        try:
-            ref_bits = bytes_to_bits(serialize_payload(original_watermark, secret_key))
-            if len(available_channels) >= len(ref_bits):
-                test_positions = get_payload_positions(available_channels, len(ref_bits), secret_key)
-                test_bits = flat_channels[test_positions] & 1
+    if watermark_type == "TEXT":
+        # NC/BER untuk teks dihitung terhadap original_watermark (string)
+        if original_watermark and isinstance(original_watermark, str):
+            try:
+                ref_bits = bytes_to_bits(serialize_payload(original_watermark, secret_key))
+                if len(available_channels) >= len(ref_bits):
+                    test_positions = get_payload_positions(available_channels, len(ref_bits), secret_key)
+                    test_bits = flat_channels[test_positions] & 1
 
-                ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
+                    ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
 
-                u = 2.0 * ref_bits.astype(np.float64) - 1.0
-                v = 2.0 * test_bits.astype(np.float64) - 1.0
-                denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
-                nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
-        except Exception:
-            pass
+                    u = 2.0 * ref_bits.astype(np.float64) - 1.0
+                    v = 2.0 * test_bits.astype(np.float64) - 1.0
+                    denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
+                    nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
+            except Exception:
+                nc = None
+                ber = None
+
+    elif watermark_type == "LOGO":
+        # NC/BER untuk logo hanya dihitung terhadap original_logo (berkas/gambar logo)
+        # Jika user hanya mengisi original_watermark berupa string, abaikan (nc=None, ber=None)
+        if original_logo is not None and binary_logo is not None:
+            try:
+                from backend.services.logo import normalize_logo
+
+                ref_binary = normalize_logo(original_logo, max_size=(64, 64), threshold=128)
+                if ref_binary.shape == binary_logo.shape:
+                    ref_bits = ref_binary.flatten()
+                    test_bits = binary_logo.flatten()
+
+                    ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
+
+                    u = 2.0 * ref_bits.astype(np.float64) - 1.0
+                    v = 2.0 * test_bits.astype(np.float64) - 1.0
+                    denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
+                    nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
+            except Exception:
+                nc = None
+                ber = None
+
+    else:
+        # Kasus watermark tidak terdeteksi (misal karena serangan atau secret key salah)
+        # Untuk TEXT: jika original_watermark (string) disediakan dan bukan logo, tetap ukur bit degradasi
+        if original_watermark and isinstance(original_watermark, str) and original_logo is None:
+            try:
+                ref_bits = bytes_to_bits(serialize_payload(original_watermark, secret_key))
+                if len(available_channels) >= len(ref_bits):
+                    test_positions = get_payload_positions(available_channels, len(ref_bits), secret_key)
+                    test_bits = flat_channels[test_positions] & 1
+
+                    ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
+
+                    u = 2.0 * ref_bits.astype(np.float64) - 1.0
+                    v = 2.0 * test_bits.astype(np.float64) - 1.0
+                    denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
+                    nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
+            except Exception:
+                nc = None
+                ber = None
 
     return {
         "watermark_detected": watermark_detected,
+        "watermark_type": watermark_type,
         "watermark": extracted_watermark,
+        "logo_image": extracted_logo,
+        "logo_width": logo_width,
+        "logo_height": logo_height,
+        "binary_logo": binary_logo,
         "tamper_map": tamper_map_image,
         "valid_blocks": valid_blocks,
         "total_blocks": total_blocks,

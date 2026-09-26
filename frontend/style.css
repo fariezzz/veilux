@@ -765,6 +765,91 @@ body {
   border-color: var(--text-primary);
 }
 
+/* Pemilihan tipe watermark (teks atau logo) */
+.type-selector-track {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  gap: 3px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  margin-bottom: var(--space-md);
+}
+
+.type-selector-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.type-selector-btn:hover:not(.type-selector-btn-active) {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+.type-selector-btn-active {
+  background-color: var(--text-primary);
+  color: var(--text-inverse);
+}
+
+/* Tampilan logo terdeteksi */
+.detect-status-logo-wrap {
+  margin-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.detect-status-logo-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.detect-logo-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.detect-logo-preview-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  background: #ffffff;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.detect-logo-preview-box img {
+  image-rendering: pixelated;
+  max-width: 128px;
+  max-height: 128px;
+  display: block;
+}
+
 /* Form controls & security inputs */
 .form-grid {
   display: grid;

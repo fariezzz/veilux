@@ -22,7 +22,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3.0" />
 </head>
 <body>
   <!-- Header aplikasi -->
@@ -186,8 +186,29 @@
           <span class="section-label-title">Parameter Penyisipan</span>
         </div>
 
+        <!-- Pilihan tipe watermark: Teks atau Logo -->
+        <div class="type-selector-track" role="radiogroup" aria-label="Tipe Watermark">
+          <button type="button" class="type-selector-btn type-selector-btn-active" id="type-opt-text" data-type="text" aria-pressed="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="4 7 4 4 20 4 20 7"></polyline>
+              <line x1="9" y1="20" x2="15" y2="20"></line>
+              <line x1="12" y1="4" x2="12" y2="20"></line>
+            </svg>
+            <span>TEKS IDENTITAS</span>
+          </button>
+          <button type="button" class="type-selector-btn" id="type-opt-logo" data-type="logo" aria-pressed="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>LOGO BINER</span>
+          </button>
+        </div>
+
         <div class="form-grid">
-          <div class="form-group">
+          <!-- Input tipe teks -->
+          <div class="form-group" id="form-group-text">
             <div class="form-group-head">
               <label for="watermark-text" class="form-label">Payload Watermark</label>
               <span class="input-counter" id="watermark-counter">0/64</span>
@@ -203,6 +224,46 @@
             <span class="input-hint">Teks biner ASCII yang akan disisipkan ke bit LSB citra (maks 64 karakter)</span>
           </div>
 
+          <!-- Input tipe logo (hidden saat awal) -->
+          <div class="form-group" id="form-group-logo" hidden>
+            <div class="form-group-head">
+              <label for="file-logo" class="form-label">Berkas Citra Logo</label>
+              <span class="param-badge">BINER 64×64</span>
+            </div>
+            <div class="upload" id="upload-logo">
+              <div class="upload-zone" id="dropzone-logo" tabindex="0" role="button" aria-label="Unggah berkas logo">
+                <p class="upload-primary-text">Seret & letakkan logo, atau <span class="upload-browse">pilih berkas</span></p>
+                <div class="upload-spec-row">
+                  <span class="spec-tag">PNG</span>
+                  <span class="spec-tag">JPEG</span>
+                  <span class="spec-sep">•</span>
+                  <span class="spec-text">Dinormalisasi ke biner maks 64×64 px</span>
+                </div>
+                <input type="file" id="file-logo" accept="image/png,image/jpeg" hidden />
+              </div>
+              <div class="upload-preview" id="preview-logo" hidden>
+                <div class="preview-canvas" style="min-height: 120px; max-height: 160px;">
+                  <img id="img-logo" alt="Pratinjau logo" style="max-height: 130px;" />
+                </div>
+                <div class="preview-footer">
+                  <div class="preview-meta">
+                    <span class="preview-meta-label">LOGO TERPILIH</span>
+                    <span class="upload-info" id="info-logo"></span>
+                  </div>
+                  <button type="button" class="upload-remove" id="remove-logo" title="Ganti logo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>Ganti</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <span class="input-hint">Logo diubah ke grayscale dan biner (0/1) dengan aspect ratio tetap terjaga</span>
+          </div>
+
+          <!-- Secret key -->
           <div class="form-group">
             <div class="form-group-head">
               <label for="secret-key-embed" class="form-label">Secret Key</label>
@@ -312,7 +373,7 @@
       <div class="panel-header">
         <div class="panel-heading">
           <h2 class="panel-title">Deteksi & Verifikasi Integritas</h2>
-          <p class="panel-description">Mengekstrak payload dari bit LSB dan memetakan integritas citra piksel demi piksel untuk menghasilkan Tamper Map.</p>
+          <p class="panel-description">Mengekstrak payload dari bit LSB dan memetakan status integritas citra pada setiap blok 32×32 piksel untuk menghasilkan Tamper Map.</p>
         </div>
         <span class="panel-badge">ANALISIS: EKSTRAKSI & TAMPER MAP</span>
       </div>
@@ -366,7 +427,27 @@
       <div class="workspace-section">
         <div class="section-label">
           <span class="section-label-index">B</span>
-          <span class="section-label-title">Parameter Verifikasi</span>
+          <span class="section-label-title">Parameter Verifikasi & Evaluasi</span>
+        </div>
+
+        <!-- Pilihan tipe referensi pembanding untuk NC & BER -->
+        <div class="type-selector-track" role="radiogroup" aria-label="Tipe Referensi Watermark">
+          <button type="button" class="type-selector-btn type-selector-btn-active" id="detect-ref-opt-text" data-type="text" aria-pressed="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="4 7 4 4 20 4 20 7"></polyline>
+              <line x1="9" y1="20" x2="15" y2="20"></line>
+              <line x1="12" y1="4" x2="12" y2="20"></line>
+            </svg>
+            <span>REFERENSI TEKS</span>
+          </button>
+          <button type="button" class="type-selector-btn" id="detect-ref-opt-logo" data-type="logo" aria-pressed="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>REFERENSI LOGO</span>
+          </button>
         </div>
 
         <div class="form-grid">
@@ -391,9 +472,10 @@
             <span class="input-hint">Kunci harus identik dengan kunci saat penyisipan agar posisi PRNG sinkron</span>
           </div>
 
-          <div class="form-group">
+          <!-- Input referensi teks -->
+          <div class="form-group" id="form-group-ref-text-detect">
             <div class="form-group-head">
-              <label for="original-watermark-detect" class="form-label">Watermark Asli <span class="label-optional">(Opsional)</span></label>
+              <label for="original-watermark-detect" class="form-label">Watermark Teks Asli <span class="label-optional">(Opsional)</span></label>
               <span class="input-counter" id="original-watermark-detect-counter">0/64</span>
             </div>
             <div class="input-wrapper">
@@ -405,6 +487,45 @@
               <input type="text" id="original-watermark-detect" placeholder="Teks watermark asli untuk kalkulasi NC & BER" maxlength="64" spellcheck="false" autocomplete="off" />
             </div>
             <span class="input-hint">Jika diisi, sistem menghitung Normalized Correlation (NC) dan Bit Error Rate (BER)</span>
+          </div>
+
+          <!-- Input referensi logo (hidden saat awal) -->
+          <div class="form-group" id="form-group-ref-logo-detect" hidden>
+            <div class="form-group-head">
+              <label for="file-ref-logo-detect" class="form-label">Logo Asli Pembanding <span class="label-optional">(Opsional)</span></label>
+              <span class="param-badge">NC & BER</span>
+            </div>
+            <div class="upload" id="upload-ref-logo-detect">
+              <div class="upload-zone" id="dropzone-ref-logo-detect" tabindex="0" role="button" aria-label="Unggah logo referensi">
+                <p class="upload-primary-text">Seret & letakkan logo pembanding, atau <span class="upload-browse">pilih berkas</span></p>
+                <div class="upload-spec-row">
+                  <span class="spec-tag">PNG</span>
+                  <span class="spec-tag">JPEG</span>
+                  <span class="spec-sep">•</span>
+                  <span class="spec-text">Untuk evaluasi NC & BER logo</span>
+                </div>
+                <input type="file" id="file-ref-logo-detect" accept="image/png,image/jpeg" hidden />
+              </div>
+              <div class="upload-preview" id="preview-ref-logo-detect" hidden>
+                <div class="preview-canvas" style="min-height: 120px; max-height: 160px;">
+                  <img id="img-ref-logo-detect" alt="Pratinjau logo referensi" style="max-height: 130px;" />
+                </div>
+                <div class="preview-footer">
+                  <div class="preview-meta">
+                    <span class="preview-meta-label">LOGO REFERENSI</span>
+                    <span class="upload-info" id="info-ref-logo-detect"></span>
+                  </div>
+                  <button type="button" class="upload-remove" id="remove-ref-logo-detect" title="Ganti logo pembanding">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>Ganti</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <span class="input-hint">Logo dinormalisasi ke biner dan dibandingkan dengan binary logo hasil ekstraksi</span>
           </div>
         </div>
       </div>
@@ -434,6 +555,17 @@
           <div class="detect-status-details">
             <div class="detect-status-text">Watermark Terdeteksi</div>
             <div class="detect-status-watermark" id="detected-watermark-text"></div>
+            <!-- Tampilan logo biner terdeteksi -->
+            <div class="detect-status-logo-wrap" id="detected-logo-wrap" hidden>
+              <div class="detect-status-logo-meta">
+                <span class="detect-logo-badge">TIPE: LOGO BINER</span>
+                <span class="detect-logo-badge" id="detected-logo-dims">--</span>
+                <span class="detect-logo-badge" style="color: var(--accent); font-weight: 800;">INTEGRITAS: VALID</span>
+              </div>
+              <div class="detect-logo-preview-box">
+                <img id="detected-logo-img" alt="Logo biner hasil rekonstruksi" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -501,8 +633,8 @@
 
         <div class="tamper-section">
           <div class="tamper-section-head">
-            <h4 class="tamper-section-title">Peta Modifikasi Citra (Tamper Map)</h4>
-            <span class="tamper-section-legend">Piksel putih/merah menandakan bit LSB yang termodifikasi</span>
+            <h4 class="tamper-section-title">Peta Integritas Citra (Tamper Map)</h4>
+            <span class="tamper-section-legend">Status integritas per blok 32×32 piksel: putih = blok valid, merah = blok terindikasi manipulasi</span>
           </div>
           <div class="tamper-section-images">
             <div class="result-image-card">
@@ -590,6 +722,26 @@
           <span class="section-label-title">Parameter Kunci & Evaluasi</span>
         </div>
 
+        <!-- Pilihan tipe referensi pembanding untuk NC & BER saat uji serangan -->
+        <div class="type-selector-track" role="radiogroup" aria-label="Tipe Referensi Watermark Serangan">
+          <button type="button" class="type-selector-btn type-selector-btn-active" id="attack-ref-opt-text" data-type="text" aria-pressed="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="4 7 4 4 20 4 20 7"></polyline>
+              <line x1="9" y1="20" x2="15" y2="20"></line>
+              <line x1="12" y1="4" x2="12" y2="20"></line>
+            </svg>
+            <span>REFERENSI TEKS</span>
+          </button>
+          <button type="button" class="type-selector-btn" id="attack-ref-opt-logo" data-type="logo" aria-pressed="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>REFERENSI LOGO</span>
+          </button>
+        </div>
+
         <div class="form-grid">
           <div class="form-group">
             <div class="form-group-head">
@@ -612,9 +764,10 @@
             <span class="input-hint">Kunci PRNG untuk membaca kembali bit LSB setelah serangan diterapkan</span>
           </div>
 
-          <div class="form-group">
+          <!-- Input referensi teks -->
+          <div class="form-group" id="form-group-ref-text-attack">
             <div class="form-group-head">
-              <label for="original-watermark-attack" class="form-label">Watermark Asli <span class="label-optional">(Opsional)</span></label>
+              <label for="original-watermark-attack" class="form-label">Watermark Teks Asli <span class="label-optional">(Opsional)</span></label>
               <span class="input-counter" id="original-watermark-attack-counter">0/64</span>
             </div>
             <div class="input-wrapper">
@@ -626,6 +779,45 @@
               <input type="text" id="original-watermark-attack" placeholder="Watermark asli untuk evaluasi NC & BER" maxlength="64" spellcheck="false" autocomplete="off" />
             </div>
             <span class="input-hint">Digunakan untuk menghitung Normalized Correlation (NC) dan Bit Error Rate (BER)</span>
+          </div>
+
+          <!-- Input referensi logo (hidden saat awal) -->
+          <div class="form-group" id="form-group-ref-logo-attack" hidden>
+            <div class="form-group-head">
+              <label for="file-ref-logo-attack" class="form-label">Logo Asli Pembanding <span class="label-optional">(Opsional)</span></label>
+              <span class="param-badge">NC & BER</span>
+            </div>
+            <div class="upload" id="upload-ref-logo-attack">
+              <div class="upload-zone" id="dropzone-ref-logo-attack" tabindex="0" role="button" aria-label="Unggah logo referensi">
+                <p class="upload-primary-text">Seret & letakkan logo pembanding, atau <span class="upload-browse">pilih berkas</span></p>
+                <div class="upload-spec-row">
+                  <span class="spec-tag">PNG</span>
+                  <span class="spec-tag">JPEG</span>
+                  <span class="spec-sep">•</span>
+                  <span class="spec-text">Untuk evaluasi NC & BER logo</span>
+                </div>
+                <input type="file" id="file-ref-logo-attack" accept="image/png,image/jpeg" hidden />
+              </div>
+              <div class="upload-preview" id="preview-ref-logo-attack" hidden>
+                <div class="preview-canvas" style="min-height: 120px; max-height: 160px;">
+                  <img id="img-ref-logo-attack" alt="Pratinjau logo referensi" style="max-height: 130px;" />
+                </div>
+                <div class="preview-footer">
+                  <div class="preview-meta">
+                    <span class="preview-meta-label">LOGO REFERENSI</span>
+                    <span class="upload-info" id="info-ref-logo-attack"></span>
+                  </div>
+                  <button type="button" class="upload-remove" id="remove-ref-logo-attack" title="Ganti logo pembanding">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>Ganti</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <span class="input-hint">Logo dinormalisasi ke biner dan dibandingkan dengan binary logo hasil ekstraksi</span>
           </div>
         </div>
       </div>
@@ -881,6 +1073,16 @@
           <div class="detect-status-details">
             <div class="detect-status-text" id="attack-detect-text">Watermark Terdeteksi</div>
             <div class="detect-status-watermark" id="attack-detected-watermark"></div>
+            <!-- Tampilan logo biner pasca-serangan -->
+            <div class="detect-status-logo-wrap" id="attack-detected-logo-wrap" hidden>
+              <div class="detect-status-logo-meta">
+                <span class="detect-logo-badge">TIPE: LOGO BINER</span>
+                <span class="detect-logo-badge" id="attack-detected-logo-dims">--</span>
+              </div>
+              <div class="detect-logo-preview-box">
+                <img id="attack-detected-logo-img" alt="Logo biner pasca-serangan" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -913,6 +1115,6 @@
     </div>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>

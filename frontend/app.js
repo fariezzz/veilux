@@ -4,9 +4,12 @@ const API_BASE = 'http://localhost:8000/api';
 
 // Status data aplikasi
 const state = {
-  embed: { file: null },
-  detect: { file: null },
-  attack: { file: null, selectedAttack: null },
+  embed: { file: null, watermarkType: 'text' },
+  detect: { file: null, refType: 'text' },
+  attack: { file: null, selectedAttack: null, refType: 'text' },
+  logo: { file: null },
+  'ref-logo-detect': { file: null },
+  'ref-logo-attack': { file: null },
 };
 
 // Pengaturan tema tampilan (mode gelap dan terang)
@@ -125,6 +128,9 @@ function setupUpload(mode) {
   // Klik untuk memilih berkas dari perangkat
   dropzone.addEventListener('click', () => fileInput.click());
 
+  // Mencegah bubble jika input berada di dalam dropzone
+  fileInput.addEventListener('click', (e) => e.stopPropagation());
+
   // Aksesibilitas keyboard untuk area dropzone
   dropzone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -171,7 +177,7 @@ function setupUpload(mode) {
       fileInput.value = '';
       previewWrap.hidden = true;
       dropzone.hidden = false;
-      validateForm(mode);
+      validateForm(mode === 'logo' ? 'embed' : mode);
     });
   }
 }
@@ -205,11 +211,159 @@ function handleFile(mode, file) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-  validateForm(mode);
+  validateForm(mode === 'logo' ? 'embed' : mode);
 }
 
-// Inisialisasi zona unggah untuk seluruh alur kerja
-['embed', 'detect', 'attack'].forEach(setupUpload);
+// Inisialisasi zona unggah untuk seluruh alur kerja (termasuk logo watermark & referensi logo)
+['embed', 'detect', 'attack', 'logo', 'ref-logo-detect', 'ref-logo-attack'].forEach(setupUpload);
+
+// Pengalihan tipe watermark: teks atau logo
+const WM_TYPE_STORAGE_KEY = 'veilux_watermark_type';
+const typeOptText = document.getElementById('type-opt-text');
+const typeOptLogo = document.getElementById('type-opt-logo');
+const formGroupText = document.getElementById('form-group-text');
+const formGroupLogo = document.getElementById('form-group-logo');
+
+function setWatermarkType(type, save = true) {
+  state.embed.watermarkType = type;
+  if (save) {
+    try {
+      localStorage.setItem(WM_TYPE_STORAGE_KEY, type);
+    } catch (e) {}
+  }
+  const isText = type === 'text';
+
+  if (typeOptText) {
+    typeOptText.classList.toggle('type-selector-btn-active', isText);
+    typeOptText.setAttribute('aria-pressed', isText ? 'true' : 'false');
+  }
+  if (typeOptLogo) {
+    typeOptLogo.classList.toggle('type-selector-btn-active', !isText);
+    typeOptLogo.setAttribute('aria-pressed', isText ? 'false' : 'true');
+  }
+
+  if (formGroupText) {
+    formGroupText.hidden = !isText;
+    formGroupText.style.display = isText ? '' : 'none';
+  }
+  if (formGroupLogo) {
+    formGroupLogo.hidden = isText;
+    formGroupLogo.style.display = isText ? 'none' : '';
+  }
+
+  validateForm('embed');
+}
+
+function initWatermarkType() {
+  let savedType = 'text';
+  try {
+    const stored = localStorage.getItem(WM_TYPE_STORAGE_KEY);
+    if (stored === 'text' || stored === 'logo') {
+      savedType = stored;
+    }
+  } catch (e) {}
+  setWatermarkType(savedType, false);
+}
+
+if (typeOptText) {
+  typeOptText.addEventListener('click', (e) => {
+    e.preventDefault();
+    setWatermarkType('text', true);
+  });
+}
+
+if (typeOptLogo) {
+  typeOptLogo.addEventListener('click', (e) => {
+    e.preventDefault();
+    setWatermarkType('logo', true);
+  });
+}
+
+// Pengalihan tipe referensi watermark pada panel deteksi
+const detectRefOptText = document.getElementById('detect-ref-opt-text');
+const detectRefOptLogo = document.getElementById('detect-ref-opt-logo');
+const formGroupRefTextDetect = document.getElementById('form-group-ref-text-detect');
+const formGroupRefLogoDetect = document.getElementById('form-group-ref-logo-detect');
+
+function setDetectRefType(type) {
+  state.detect.refType = type;
+  const isText = type === 'text';
+
+  if (detectRefOptText) {
+    detectRefOptText.classList.toggle('type-selector-btn-active', isText);
+    detectRefOptText.setAttribute('aria-pressed', isText ? 'true' : 'false');
+  }
+  if (detectRefOptLogo) {
+    detectRefOptLogo.classList.toggle('type-selector-btn-active', !isText);
+    detectRefOptLogo.setAttribute('aria-pressed', isText ? 'false' : 'true');
+  }
+
+  if (formGroupRefTextDetect) {
+    formGroupRefTextDetect.hidden = !isText;
+    formGroupRefTextDetect.style.display = isText ? '' : 'none';
+  }
+  if (formGroupRefLogoDetect) {
+    formGroupRefLogoDetect.hidden = isText;
+    formGroupRefLogoDetect.style.display = isText ? 'none' : '';
+  }
+}
+
+if (detectRefOptText) {
+  detectRefOptText.addEventListener('click', (e) => {
+    e.preventDefault();
+    setDetectRefType('text');
+  });
+}
+
+if (detectRefOptLogo) {
+  detectRefOptLogo.addEventListener('click', (e) => {
+    e.preventDefault();
+    setDetectRefType('logo');
+  });
+}
+
+// Pengalihan tipe referensi watermark pada panel uji serangan (attack)
+const attackRefOptText = document.getElementById('attack-ref-opt-text');
+const attackRefOptLogo = document.getElementById('attack-ref-opt-logo');
+const formGroupRefTextAttack = document.getElementById('form-group-ref-text-attack');
+const formGroupRefLogoAttack = document.getElementById('form-group-ref-logo-attack');
+
+function setAttackRefType(type) {
+  state.attack.refType = type;
+  const isText = type === 'text';
+
+  if (attackRefOptText) {
+    attackRefOptText.classList.toggle('type-selector-btn-active', isText);
+    attackRefOptText.setAttribute('aria-pressed', isText ? 'true' : 'false');
+  }
+  if (attackRefOptLogo) {
+    attackRefOptLogo.classList.toggle('type-selector-btn-active', !isText);
+    attackRefOptLogo.setAttribute('aria-pressed', isText ? 'false' : 'true');
+  }
+
+  if (formGroupRefTextAttack) {
+    formGroupRefTextAttack.hidden = !isText;
+    formGroupRefTextAttack.style.display = isText ? '' : 'none';
+  }
+  if (formGroupRefLogoAttack) {
+    formGroupRefLogoAttack.hidden = isText;
+    formGroupRefLogoAttack.style.display = isText ? 'none' : '';
+  }
+}
+
+if (attackRefOptText) {
+  attackRefOptText.addEventListener('click', (e) => {
+    e.preventDefault();
+    setAttackRefType('text');
+  });
+}
+
+if (attackRefOptLogo) {
+  attackRefOptLogo.addEventListener('click', (e) => {
+    e.preventDefault();
+    setAttackRefType('logo');
+  });
+}
 
 // Validasi formulir dan indikator kelengkapan parameter
 function updateValidationFeedback(mode, isValid, missingItems) {
@@ -234,7 +388,10 @@ function updateValidationFeedback(mode, isValid, missingItems) {
 function validateForm(mode) {
   if (mode === 'embed') {
     const hasFile = !!state.embed.file;
-    const hasWatermark = document.getElementById('watermark-text').value.trim().length > 0;
+    const isLogo = state.embed.watermarkType === 'logo';
+    const hasWatermark = isLogo
+      ? !!state.logo.file
+      : document.getElementById('watermark-text').value.trim().length > 0;
     const hasKey = document.getElementById('secret-key-embed').value.trim().length > 0;
     const isValid = hasFile && hasWatermark && hasKey;
 
@@ -243,7 +400,7 @@ function validateForm(mode) {
 
     const missing = [];
     if (!hasFile) missing.push('citra sampul');
-    if (!hasWatermark) missing.push('payload watermark');
+    if (!hasWatermark) missing.push(isLogo ? 'berkas logo' : 'payload watermark');
     if (!hasKey) missing.push('secret key');
     updateValidationFeedback('embed', isValid, missing);
   } else if (mode === 'detect') {
@@ -376,12 +533,28 @@ async function apiCall(endpoint, formData) {
 const btnEmbed = document.getElementById('btn-embed');
 if (btnEmbed) {
   btnEmbed.addEventListener('click', async () => {
+    const isLogo = state.embed.watermarkType === 'logo';
     const formData = new FormData();
     formData.append('image', state.embed.file);
-    formData.append('watermark', document.getElementById('watermark-text').value.trim());
     formData.append('secret_key', document.getElementById('secret-key-embed').value.trim());
+    formData.append('watermark_type', state.embed.watermarkType);
 
-    showLoading('Menyisipkan watermark ke bit LSB citra...');
+    if (isLogo) {
+      if (!state.logo.file) {
+        showToast('Berkas logo wajib dipilih sebelum menyisipkan.', 'error');
+        return;
+      }
+      formData.append('logo', state.logo.file);
+    } else {
+      const wmText = document.getElementById('watermark-text').value.trim();
+      if (!wmText) {
+        showToast('Payload watermark teks tidak boleh kosong.', 'error');
+        return;
+      }
+      formData.append('watermark', wmText);
+    }
+
+    showLoading(isLogo ? 'Memproses biner logo & menyisipkan ke bit LSB...' : 'Menyisipkan watermark ke bit LSB citra...');
 
     try {
       const data = await apiCall('/embed', formData);
@@ -415,9 +588,15 @@ if (btnDetect) {
     formData.append('image', state.detect.file);
     formData.append('secret_key', document.getElementById('secret-key-detect').value.trim());
 
-    const origWm = document.getElementById('original-watermark-detect').value.trim();
-    if (origWm) {
-      formData.append('original_watermark', origWm);
+    if (state.detect.refType === 'logo') {
+      if (state['ref-logo-detect'] && state['ref-logo-detect'].file) {
+        formData.append('original_logo', state['ref-logo-detect'].file);
+      }
+    } else {
+      const origWm = document.getElementById('original-watermark-detect').value.trim();
+      if (origWm) {
+        formData.append('original_watermark', origWm);
+      }
     }
 
     showLoading('Mengekstrak bit LSB & menganalisis integritas...');
@@ -428,17 +607,36 @@ if (btnDetect) {
       const statusEl = document.getElementById('detect-status');
       const statusTextEl = statusEl.querySelector('.detect-status-text');
       const wmTextEl = document.getElementById('detected-watermark-text');
+      const logoWrap = document.getElementById('detected-logo-wrap');
+      const logoImg = document.getElementById('detected-logo-img');
+      const logoDims = document.getElementById('detected-logo-dims');
 
       if (data.watermark_detected) {
         statusEl.classList.remove('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✓';
         statusTextEl.textContent = 'Watermark Terdeteksi & Terverifikasi';
-        wmTextEl.textContent = `"${data.watermark}"`;
+
+        if (data.watermark_type === 'LOGO' && data.logo_image) {
+          if (wmTextEl) wmTextEl.style.display = 'none';
+          if (logoWrap) logoWrap.hidden = false;
+          if (logoImg) logoImg.src = data.logo_image;
+          if (logoDims) logoDims.textContent = `${data.logo_width} × ${data.logo_height} px`;
+        } else {
+          if (logoWrap) logoWrap.hidden = true;
+          if (wmTextEl) {
+            wmTextEl.style.display = 'block';
+            wmTextEl.textContent = `"${data.watermark}"`;
+          }
+        }
       } else {
         statusEl.classList.add('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✗';
         statusTextEl.textContent = 'Watermark Tidak Terdeteksi / Integritas Rusak';
-        wmTextEl.textContent = '';
+        if (wmTextEl) {
+          wmTextEl.style.display = 'block';
+          wmTextEl.textContent = '';
+        }
+        if (logoWrap) logoWrap.hidden = true;
       }
 
       document.getElementById('detect-input-img').src = data.input_image;
@@ -476,9 +674,15 @@ if (btnAttack) {
     formData.append('secret_key', document.getElementById('secret-key-attack').value.trim());
     formData.append('attack_type', state.attack.selectedAttack);
 
-    const origWm = document.getElementById('original-watermark-attack').value.trim();
-    if (origWm) {
-      formData.append('original_watermark', origWm);
+    if (state.attack.refType === 'logo') {
+      if (state['ref-logo-attack'] && state['ref-logo-attack'].file) {
+        formData.append('original_logo', state['ref-logo-attack'].file);
+      }
+    } else {
+      const origWm = document.getElementById('original-watermark-attack').value.trim();
+      if (origWm) {
+        formData.append('original_watermark', origWm);
+      }
     }
 
     const attackNames = {
@@ -522,17 +726,36 @@ if (btnAttack) {
       const statusEl = document.getElementById('attack-detect-status');
       const statusTextEl = document.getElementById('attack-detect-text');
       const wmEl = document.getElementById('attack-detected-watermark');
+      const attackLogoWrap = document.getElementById('attack-detected-logo-wrap');
+      const attackLogoImg = document.getElementById('attack-detected-logo-img');
+      const attackLogoDims = document.getElementById('attack-detected-logo-dims');
 
       if (data.watermark_detected) {
         statusEl.classList.remove('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✓';
         statusTextEl.textContent = 'Watermark Masih Terdeteksi (Toleransi Parsial)';
-        wmEl.textContent = `"${data.watermark}"`;
+
+        if (data.watermark_type === 'LOGO' && data.logo_image) {
+          if (wmEl) wmEl.style.display = 'none';
+          if (attackLogoWrap) attackLogoWrap.hidden = false;
+          if (attackLogoImg) attackLogoImg.src = data.logo_image;
+          if (attackLogoDims) attackLogoDims.textContent = `${data.logo_width} × ${data.logo_height} px`;
+        } else {
+          if (attackLogoWrap) attackLogoWrap.hidden = true;
+          if (wmEl) {
+            wmEl.style.display = 'block';
+            wmEl.textContent = `"${data.watermark}"`;
+          }
+        }
       } else {
         statusEl.classList.add('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✗';
         statusTextEl.textContent = 'Watermark Rusak / Pola LSB Hilang (Fragile)';
-        wmEl.textContent = '';
+        if (wmEl) {
+          wmEl.style.display = 'block';
+          wmEl.textContent = '';
+        }
+        if (attackLogoWrap) attackLogoWrap.hidden = true;
       }
 
       document.getElementById('result-attack').hidden = false;
@@ -592,8 +815,9 @@ function downloadBase64(dataUrl, filename) {
   document.body.removeChild(a);
 }
 
-// Inisialisasi tema saat aplikasi pertama kali dimuat
+// Inisialisasi tema dan tipe watermark saat aplikasi pertama kali dimuat
 initTheme();
+initWatermarkType();
 
 // Klien live reload (mode pengembangan lokal)
 (function initLiveReload() {
@@ -602,6 +826,7 @@ initTheme();
 
   const watchedFiles = ['index.html', 'style.css', 'app.js'];
   const fileTimestamps = {};
+  let isChecking = false;
 
   async function checkFile(file) {
     try {
@@ -623,13 +848,17 @@ initTheme();
             }
           });
         } else {
-          window.location.reload();
+          setTimeout(() => window.location.reload(), 300);
         }
       }
     } catch (e) {}
   }
 
   setInterval(() => {
-    watchedFiles.forEach(checkFile);
-  }, 800);
+    if (isChecking) return;
+    isChecking = true;
+    Promise.all(watchedFiles.map(checkFile)).finally(() => {
+      isChecking = false;
+    });
+  }, 2500);
 })();

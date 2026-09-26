@@ -30,7 +30,11 @@ class AttackResponse(BaseModel):
     nc: Optional[float] = Field(None, description="Normalized Correlation")
     ber: Optional[float] = Field(None, description="Bit Error Rate")
     watermark_detected: bool = Field(..., description="Apakah watermark masih terdeteksi pasca-serangan")
+    watermark_type: Optional[str] = Field(None, description="Tipe watermark yang terdeteksi: 'TEXT', 'LOGO', atau null")
     watermark: Optional[str] = Field(None, description="Teks watermark yang diekstrak")
+    logo_image: Optional[str] = Field(None, description="Data URL citra logo jika tipe LOGO")
+    logo_width: Optional[int] = Field(None, description="Lebar logo jika tipe LOGO")
+    logo_height: Optional[int] = Field(None, description="Tinggi logo jika tipe LOGO")
     valid_blocks: int = Field(..., description="Jumlah blok yang lolos verifikasi integritas")
     total_blocks: int = Field(..., description="Total blok pada citra")
     tamper_ratio: float = Field(..., description="Proporsi blok yang terdeteksi berubah (0.0–1.0)")
@@ -64,11 +68,11 @@ def apply_image_attack(image: Image.Image, attack_type: str) -> Image.Image:
         return Image.open(buf).convert("RGB")
 
     if attack_type == "crop":
-        # Zeroing 15% area kanan-bawah; dimensi citra tetap sama
+        # Potong 15% lebar dan 15% tinggi di area kanan-bawah secara nyata
         w, h = img.size
-        arr = np.array(img, dtype=np.uint8)
-        arr[h - max(1, int(h * 0.15)):, w - max(1, int(w * 0.15)):] = 0
-        return Image.fromarray(arr, mode="RGB")
+        cw = max(1, int(w * 0.15))
+        ch = max(1, int(h * 0.15))
+        return img.crop((0, 0, w - cw, h - ch))
 
     if attack_type == "resize":
         # Downsample 50% → upsample kembali; interpolasi ganda merusak LSB secara merata
@@ -97,7 +101,8 @@ async def attack_endpoint(
     image: UploadFile = File(..., description="Berkas citra ber-watermark (PNG atau JPEG)"),
     secret_key: str = Form(..., description="Kunci rahasia PRNG"),
     attack_type: str = Form(..., description="Jenis serangan yang akan disimulasikan"),
-    original_watermark: Optional[str] = Form(None, description="Watermark referensi untuk kalkulasi NC & BER (opsional)"),
+    original_watermark: Optional[str] = Form(None, description="Watermark referensi teks untuk kalkulasi NC & BER (opsional)"),
+    original_logo: Optional[UploadFile] = File(None, description="Berkas citra logo referensi untuk kalkulasi NC & BER (opsional)"),
 ) -> Dict[str, object]:
     clean_key = secret_key.strip()
     if not clean_key:
@@ -125,6 +130,11 @@ async def attack_endpoint(
     pil_image = _load_image(contents)
     rgb_before = pil_image.convert("RGB")
 
+    original_logo_pil: Optional[Image.Image] = None
+    if original_logo is not None and getattr(original_logo, "filename", None):
+        logo_contents = await _read_image_upload(original_logo)
+        original_logo_pil = _load_image(logo_contents)
+
     try:
         rgb_after = apply_image_attack(rgb_before, clean_attack)
     except ValueError as exc:
@@ -134,21 +144,45 @@ async def attack_endpoint(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Gagal melakukan simulasi serangan pada citra.")
 
     try:
-        detect_result = detect_watermark(image=rgb_after, secret_key=clean_key, original_watermark=clean_original_watermark)
+        detect_result = detect_watermark(
+            image=rgb_after,
+            secret_key=clean_key,
+            original_watermark=clean_original_watermark,
+            original_logo=original_logo_pil,
+        )
     except Exception:
         logger.exception("Kesalahan tidak terduga saat deteksi watermark pasca-serangan")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Gagal memproses deteksi watermark pasca-serangan.")
+
+    if rgb_before.size != rgb_after.size:
+        # Pada serangan yang mengubah dimensi citra (seperti crop):
+        # Evaluasi MSE dan PSNR dihitung terhadap kanvas berukuran citra asli
+        eval_after = Image.new("RGB", rgb_before.size, (0, 0, 0))
+        eval_after.paste(rgb_after, (0, 0))
+        mse_val = calculate_mse(rgb_before, eval_after)
+        psnr_val = calculate_psnr(rgb_before, eval_after)
+    else:
+        mse_val = calculate_mse(rgb_before, rgb_after)
+        psnr_val = calculate_psnr(rgb_before, rgb_after)
+
+    logo_data_url: Optional[str] = None
+    if detect_result.get("logo_image") is not None:
+        logo_data_url = image_to_data_url(detect_result["logo_image"])
 
     return {
         "before_image": image_to_data_url(rgb_before),
         "after_image": image_to_data_url(rgb_after),
         "tamper_map": image_to_data_url(detect_result["tamper_map"]),
-        "psnr": float(calculate_psnr(rgb_before, rgb_after)),
-        "mse": float(calculate_mse(rgb_before, rgb_after)),
+        "psnr": float(psnr_val),
+        "mse": float(mse_val),
         "nc": detect_result["nc"],
         "ber": detect_result["ber"],
         "watermark_detected": detect_result["watermark_detected"],
+        "watermark_type": detect_result.get("watermark_type"),
         "watermark": detect_result["watermark"],
+        "logo_image": logo_data_url,
+        "logo_width": detect_result.get("logo_width"),
+        "logo_height": detect_result.get("logo_height"),
         "valid_blocks": detect_result["valid_blocks"],
         "total_blocks": detect_result["total_blocks"],
         "tamper_ratio": detect_result["tamper_ratio"],

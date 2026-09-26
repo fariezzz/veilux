@@ -20,7 +20,11 @@ router = APIRouter()
 
 class DetectResponse(BaseModel):
     watermark_detected: bool = Field(..., description="Apakah watermark valid berhasil terdeteksi")
+    watermark_type: Optional[str] = Field(None, description="Tipe watermark: 'TEXT', 'LOGO', atau null")
     watermark: Optional[str] = Field(None, description="Teks watermark yang diekstrak")
+    logo_image: Optional[str] = Field(None, description="Data URL citra logo hasil rekonstruksi (PNG base64)")
+    logo_width: Optional[int] = Field(None, description="Lebar logo dalam piksel jika tipe LOGO")
+    logo_height: Optional[int] = Field(None, description="Tinggi logo dalam piksel jika tipe LOGO")
     nc: Optional[float] = Field(None, description="Normalized Correlation (null jika referensi tidak disediakan)")
     ber: Optional[float] = Field(None, description="Bit Error Rate (null jika referensi tidak disediakan)")
     valid_blocks: int = Field(..., description="Jumlah blok yang lolos verifikasi integritas")
@@ -34,7 +38,8 @@ class DetectResponse(BaseModel):
 async def detect_endpoint(
     image: UploadFile = File(..., description="Berkas citra stego (PNG atau JPEG)"),
     secret_key: str = Form(..., description="Kunci rahasia PRNG"),
-    original_watermark: Optional[str] = Form(None, description="Watermark referensi untuk kalkulasi NC & BER (opsional)"),
+    original_watermark: Optional[str] = Form(None, description="Watermark referensi teks untuk kalkulasi NC & BER (opsional)"),
+    original_logo: Optional[UploadFile] = File(None, description="Berkas citra logo referensi untuk kalkulasi NC & BER (opsional)"),
 ) -> Dict[str, object]:
     clean_key = secret_key.strip()
     if not clean_key:
@@ -55,15 +60,33 @@ async def detect_endpoint(
     pil_image = _load_image(contents)
     rgb_input = pil_image.convert("RGB")
 
+    original_logo_pil: Optional[Image.Image] = None
+    if original_logo is not None and getattr(original_logo, "filename", None):
+        logo_contents = await _read_image_upload(original_logo)
+        original_logo_pil = _load_image(logo_contents)
+
     try:
-        result = detect_watermark(image=rgb_input, secret_key=clean_key, original_watermark=clean_original_watermark)
+        result = detect_watermark(
+            image=rgb_input,
+            secret_key=clean_key,
+            original_watermark=clean_original_watermark,
+            original_logo=original_logo_pil,
+        )
     except Exception:
         logger.exception("Kesalahan tidak terduga saat deteksi watermark")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Gagal memproses deteksi watermark pada citra.")
 
+    logo_data_url: Optional[str] = None
+    if result.get("logo_image") is not None:
+        logo_data_url = image_to_data_url(result["logo_image"])
+
     return {
         "watermark_detected": result["watermark_detected"],
+        "watermark_type": result.get("watermark_type"),
         "watermark": result["watermark"],
+        "logo_image": logo_data_url,
+        "logo_width": result.get("logo_width"),
+        "logo_height": result.get("logo_height"),
         "nc": result["nc"],
         "ber": result["ber"],
         "valid_blocks": result["valid_blocks"],
