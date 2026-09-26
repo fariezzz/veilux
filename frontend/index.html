@@ -124,7 +124,7 @@
     <section class="panel" id="panel-embed" aria-labelledby="tab-embed">
       <div class="panel-header">
         <div class="panel-heading">
-          <h2 class="panel-title">Alur Kerja 01: Penyisipan Watermark</h2>
+          <h2 class="panel-title">Penyisipan Watermark</h2>
           <p class="panel-description">Menyisipkan payload teks ke dalam Least Significant Bit (LSB) citra sampul menggunakan sebaran pseudo-random berbasis secret key.</p>
         </div>
         <span class="panel-badge">METODE: SPATIAL LSB 1-BIT</span>
@@ -135,7 +135,6 @@
         <div class="section-label">
           <span class="section-label-index">A</span>
           <span class="section-label-title">Citra Sampul (Cover Image)</span>
-          <span class="section-label-meta">Citra asli sebelum penyisipan</span>
         </div>
 
         <div class="upload" id="upload-embed">
@@ -155,7 +154,6 @@
               <span class="spec-sep">&bull;</span>
               <span class="spec-text">Maksimum 10 MB</span>
               <span class="spec-sep">&bull;</span>
-              <span class="spec-text">Format RGB direkomendasikan</span>
             </div>
             <input type="file" id="file-embed" accept="image/png,image/jpeg" hidden />
           </div>
@@ -186,7 +184,6 @@
         <div class="section-label">
           <span class="section-label-index">B</span>
           <span class="section-label-title">Parameter Penyisipan</span>
-          <span class="section-label-meta">Payload data dan kunci kendali posisi</span>
         </div>
 
         <div class="form-grid">
@@ -314,7 +311,7 @@
     <section class="panel" id="panel-detect" aria-labelledby="tab-detect" hidden>
       <div class="panel-header">
         <div class="panel-heading">
-          <h2 class="panel-title">Alur Kerja 02: Deteksi & Verifikasi Integritas</h2>
+          <h2 class="panel-title">Deteksi & Verifikasi Integritas</h2>
           <p class="panel-description">Mengekstrak payload dari bit LSB dan memetakan integritas citra piksel demi piksel untuk menghasilkan Tamper Map.</p>
         </div>
         <span class="panel-badge">ANALISIS: EKSTRAKSI & TAMPER MAP</span>
@@ -325,7 +322,6 @@
         <div class="section-label">
           <span class="section-label-index">A</span>
           <span class="section-label-title">Citra Uji (Input Image)</span>
-          <span class="section-label-meta">Citra yang telah di-embed atau dicurigai mengalami modifikasi</span>
         </div>
 
         <div class="upload" id="upload-detect">
@@ -371,7 +367,6 @@
         <div class="section-label">
           <span class="section-label-index">B</span>
           <span class="section-label-title">Parameter Verifikasi</span>
-          <span class="section-label-meta">Kunci dekoding dan referensi watermark pembanding</span>
         </div>
 
         <div class="form-grid">
@@ -422,9 +417,6 @@
           </svg>
           <span>Detect Watermark</span>
         </button>
-        <div class="requirements-indicator" id="requirements-detect" data-ready="false" role="status">
-          Memerlukan: citra ber-watermark, secret key
-        </div>
       </div>
 
       <!-- Hasil deteksi watermark -->
@@ -540,7 +532,7 @@
     <section class="panel" id="panel-attack" aria-labelledby="tab-attack" hidden>
       <div class="panel-header">
         <div class="panel-heading">
-          <h2 class="panel-title">Alur Kerja 03: Uji Ketahanan Terhadap Serangan Citra</h2>
+          <h2 class="panel-title">Uji Ketahanan Terhadap Serangan Citra</h2>
           <p class="panel-description">Menguji kerapuhan (fragility) skema LSB terhadap manipulasi citra: kompresi lossy, pemotongan geometri, noise, dan manipulasi pencahayaan.</p>
         </div>
         <span class="panel-badge">SIMULASI: FRAGILITY STRESS-TEST</span>
@@ -551,7 +543,6 @@
         <div class="section-label">
           <span class="section-label-index">A</span>
           <span class="section-label-title">Citra Uji Ber-watermark</span>
-          <span class="section-label-meta">Citra stego yang akan diberi perlakuan serangan</span>
         </div>
 
         <div class="upload" id="upload-attack">
@@ -597,7 +588,6 @@
         <div class="section-label">
           <span class="section-label-index">B</span>
           <span class="section-label-title">Parameter Kunci & Evaluasi</span>
-          <span class="section-label-meta">Kunci dekoding dan referensi evaluasi metrik</span>
         </div>
 
         <div class="form-grid">
@@ -767,9 +757,6 @@
           </svg>
           <span>Jalankan Serangan & Deteksi</span>
         </button>
-        <div class="requirements-indicator" id="requirements-attack" data-ready="false" role="status">
-          Memerlukan: citra ber-watermark, secret key, pilihan serangan
-        </div>
       </div>
 
       <!-- Hasil simulasi serangan -->
