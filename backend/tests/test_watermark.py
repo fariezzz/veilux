@@ -31,9 +31,7 @@ from backend.services.watermark import (
 )
 
 
-# ══════════════════════════════════════════════════════════════════
-# FIXTURES
-# ══════════════════════════════════════════════════════════════════
+# Fixtures
 @pytest.fixture
 def synthetic_image():
     """Membuat citra sintetis RGB berukuran 128x128 piksel (4x4 = 16 blok 32x32)."""
@@ -61,9 +59,7 @@ def small_image():
     return Image.new("RGB", (4, 4), color=(100, 150, 200))
 
 
-# ══════════════════════════════════════════════════════════════════
-# 1. TEST SERIALISASI & PARSING PAYLOAD (VERSI 2)
-# ══════════════════════════════════════════════════════════════════
+# 1. test serialisasi & parsing payload (versi 2)
 def test_serialize_and_parse_payload_roundtrip():
     """Serialisasi dan parsing payload dengan key yang sama menghasilkan watermark asli."""
     original_watermark = "VEILUX-247006111146-AUTHORITY"
@@ -120,9 +116,7 @@ def test_parse_payload_rejects_version_mismatch():
         parse_payload(bytes(packet), "mykey")
 
 
-# ══════════════════════════════════════════════════════════════════
-# 2. TEST BIT MANIPULATION (BIG-ENDIAN)
-# ══════════════════════════════════════════════════════════════════
+# 2. test bit manipulation (big-endian)
 def test_bytes_to_bits_and_bits_to_bytes():
     """Uji roundtrip konversi bytes ke bit dan sebaliknya dalam big-endian order."""
     original_bytes = b"Hello, Veilux!\x00\xff\xaa\x55"
@@ -148,9 +142,7 @@ def test_bits_to_bytes_rejects_invalid_input():
         bits_to_bytes([0, 1, 2, 0, 0, 0, 0, 0])
 
 
-# ══════════════════════════════════════════════════════════════════
-# 3. TEST POSISI DETERMINISTIK & BEBAS TABRAKAN (COLLISION-FREE)
-# ══════════════════════════════════════════════════════════════════
+# 3. test posisi deterministik & bebas tabrakan (collision-free)
 def test_generate_positions_identical_and_unique_for_same_key():
     """Posisi untuk key yang sama harus identik (deterministik) dan setiap indeks unik."""
     total_channels = 10000
@@ -213,9 +205,7 @@ def test_tag_positions_and_payload_positions_do_not_collide(synthetic_image):
     assert len(tag_pos) == len(set(tag_pos))
 
 
-# ══════════════════════════════════════════════════════════════════
-# 4. TEST EMBED DAN EXTRACT WATERMARK (VERSI 2)
-# ══════════════════════════════════════════════════════════════════
+# 4. test embed dan extract watermark (versi 2)
 def test_embed_and_extract_watermark_with_same_key(synthetic_image):
     """Embed lalu extract dengan key yang sama harus menghasilkan watermark asli."""
     original_watermark = "VEILUX-NPM-247006111146"
@@ -300,9 +290,7 @@ def test_embed_rejects_payload_exceeding_capacity(small_image):
         embed_watermark(small_image, watermark, secret_key)
 
 
-# ══════════════════════════════════════════════════════════════════
-# 5. TEST DETECT ENGINE & TAMPER MAP LOCALIZATION
-# ══════════════════════════════════════════════════════════════════
+# 5. test detect engine & tamper map localization
 def test_detect_watermark_untampered_image_all_white_tamper_map(synthetic_image):
     """Gambar stego utuh menghasilkan watermark terdeteksi dan tamper map seluruhnya putih."""
     secret_key = "IntegrityMasterKey2026"
@@ -425,9 +413,7 @@ def test_detect_watermark_without_reference_returns_none_for_nc_ber(synthetic_im
     assert detect_res["ber"] is None
 
 
-# ══════════════════════════════════════════════════════════════════
-# 6. TEST METRIK EVALUASI (MSE & PSNR)
-# ══════════════════════════════════════════════════════════════════
+# 6. test metrik evaluasi (mse & psnr)
 def test_calculate_mse_and_psnr_identical_images(synthetic_image):
     """Jika citra asli dan stego identik, MSE = 0.0 dan PSNR = infinity."""
     mse = calculate_mse(synthetic_image, synthetic_image)

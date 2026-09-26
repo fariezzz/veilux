@@ -8,14 +8,14 @@ class Settings:
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api"
 
-    # Batasan validasi citra
+    # Batasan validasi citra — "image/jpg" adalah alias non-standar untuk "image/jpeg"
     MAX_IMAGE_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
-    ALLOWED_IMAGE_TYPES: List[str] = ["image/png", "image/jpeg"]
+    ALLOWED_IMAGE_TYPES: List[str] = ["image/png", "image/jpeg", "image/jpg"]
 
     # Batasan validasi watermark
     MAX_WATERMARK_LENGTH: int = 64
 
-    # CORS configuration
+    # CORS configuration — wildcard ("*") tidak boleh dipakai bersama allow_credentials=True
     CORS_ORIGINS: List[str] = [
         "http://localhost",
         "http://localhost:3000",
@@ -27,7 +27,6 @@ class Settings:
         "http://127.0.0.1:5000",
         "http://127.0.0.1:5500",
         "http://127.0.0.1:8000",
-        "*",
     ]
 
 

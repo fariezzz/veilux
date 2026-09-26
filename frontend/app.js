@@ -1,20 +1,96 @@
-/* ════════════════════════════════════════════
-   VEILUX // Frontend Application Logic
-   Vanilla JS (No frameworks)
-   ════════════════════════════════════════════ */
+/* Logika aplikasi frontend Veilux (JavaScript murni tanpa framework) */
 
 const API_BASE = 'http://localhost:8000/api';
 
-// ── State ──
+// Status data aplikasi
 const state = {
   embed: { file: null },
   detect: { file: null },
   attack: { file: null, selectedAttack: null },
 };
 
-// ══════════════════════════════════════════
-// TAB NAVIGATION
-// ══════════════════════════════════════════
+// Pengaturan tema tampilan (mode gelap dan terang)
+const THEME_STORAGE_KEY = 'veilux_theme';
+
+function getPreferredTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'dark' || stored === 'light') {
+      return stored;
+    }
+  } catch (e) {}
+
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+}
+
+function updateThemeUI(theme) {
+  const isDark = theme === 'dark';
+  const optLight = document.getElementById('theme-opt-light');
+  const optDark = document.getElementById('theme-opt-dark');
+
+  if (optLight) {
+    optLight.classList.toggle('theme-switcher-option-active', !isDark);
+    optLight.setAttribute('aria-pressed', isDark ? 'false' : 'true');
+  }
+  if (optDark) {
+    optDark.classList.toggle('theme-switcher-option-active', isDark);
+    optDark.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+  }
+}
+
+function applyTheme(theme, save = true) {
+  const isDark = theme === 'dark';
+  document.documentElement.classList.toggle('dark', isDark);
+  document.documentElement.setAttribute('data-theme', theme);
+  if (document.body) {
+    document.body.classList.toggle('dark', isDark);
+  }
+  if (save) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (e) {}
+  }
+  updateThemeUI(theme);
+}
+
+function initTheme() {
+  const initialTheme = getPreferredTheme();
+  applyTheme(initialTheme, false);
+
+  const optLight = document.getElementById('theme-opt-light');
+  const optDark = document.getElementById('theme-opt-dark');
+
+  if (optLight) {
+    optLight.addEventListener('click', (e) => {
+      e.preventDefault();
+      applyTheme('light', true);
+    });
+  }
+
+  if (optDark) {
+    optDark.addEventListener('click', (e) => {
+      e.preventDefault();
+      applyTheme('dark', true);
+    });
+  }
+
+  // Sinkronisasi dinamis jika preferensi sistem operasi berubah
+  if (window.matchMedia) {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', (e) => {
+      try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (!stored) {
+          applyTheme(e.matches ? 'dark' : 'light', false);
+        }
+      } catch (err) {}
+    });
+  }
+}
+
+// Navigasi tab alur kerja
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
 
@@ -23,10 +99,10 @@ tabs.forEach((tab) => {
     const mode = tab.dataset.mode;
 
     tabs.forEach((t) => {
-      t.classList.remove('tab--active');
+      t.classList.remove('tab-active');
       t.setAttribute('aria-selected', 'false');
     });
-    tab.classList.add('tab--active');
+    tab.classList.add('tab-active');
     tab.setAttribute('aria-selected', 'true');
 
     panels.forEach((p) => (p.hidden = true));
@@ -37,23 +113,19 @@ tabs.forEach((tab) => {
   });
 });
 
-// ══════════════════════════════════════════
-// FILE UPLOAD (Drag & Drop + Click)
-// ══════════════════════════════════════════
+// Unggah berkas citra (seret & letakkan atau pilih berkas)
 function setupUpload(mode) {
   const dropzone = document.getElementById(`dropzone-${mode}`);
   const fileInput = document.getElementById(`file-${mode}`);
   const previewWrap = document.getElementById(`preview-${mode}`);
-  const previewImg = document.getElementById(`img-${mode}`);
   const removeBtn = document.getElementById(`remove-${mode}`);
-  const infoEl = document.getElementById(`info-${mode}`);
 
   if (!dropzone || !fileInput) return;
 
-  // Click to browse
+  // Klik untuk memilih berkas dari perangkat
   dropzone.addEventListener('click', () => fileInput.click());
 
-  // Keyboard accessibility for dropzone
+  // Aksesibilitas keyboard untuk area dropzone
   dropzone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -61,7 +133,7 @@ function setupUpload(mode) {
     }
   });
 
-  // Drag events
+  // Event seret dan letakkan
   ['dragenter', 'dragover'].forEach((evt) => {
     dropzone.addEventListener(evt, (e) => {
       e.preventDefault();
@@ -91,7 +163,7 @@ function setupUpload(mode) {
     }
   });
 
-  // Remove
+  // Tombol ganti citra
   if (removeBtn) {
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -105,7 +177,7 @@ function setupUpload(mode) {
 }
 
 function handleFile(mode, file) {
-  // Validate size (10MB)
+  // Validasi ukuran berkas maksimal 10 MB
   if (file.size > 10 * 1024 * 1024) {
     showToast('Ukuran file melebihi batas 10 MB.', 'error');
     return;
@@ -124,7 +196,7 @@ function handleFile(mode, file) {
     dropzone.hidden = true;
     previewWrap.hidden = false;
 
-    // Show file info
+    // Tampilkan informasi berkas citra
     const img = new Image();
     img.onload = () => {
       const sizeKB = (file.size / 1024).toFixed(1);
@@ -136,12 +208,10 @@ function handleFile(mode, file) {
   validateForm(mode);
 }
 
-// Initialize uploads
+// Inisialisasi zona unggah untuk seluruh alur kerja
 ['embed', 'detect', 'attack'].forEach(setupUpload);
 
-// ══════════════════════════════════════════
-// FORM VALIDATION & REQUIREMENTS FEEDBACK
-// ══════════════════════════════════════════
+// Validasi formulir dan indikator kelengkapan parameter
 function updateValidationFeedback(mode, isValid, missingItems) {
   const reqEl = document.getElementById(`requirements-${mode}`);
   if (!reqEl) return;
@@ -205,7 +275,7 @@ function validateForm(mode) {
   }
 }
 
-// Bind input listeners for validation
+// Pasang event listener input untuk validasi langsung
 const watermarkTextEl = document.getElementById('watermark-text');
 const secretKeyEmbedEl = document.getElementById('secret-key-embed');
 const secretKeyDetectEl = document.getElementById('secret-key-detect');
@@ -231,7 +301,7 @@ if (secretKeyAttackEl) {
   secretKeyAttackEl.addEventListener('input', () => validateForm('attack'));
 }
 
-// Live counters for optional watermark fields
+// Penghitung karakter langsung untuk field opsional
 const origWmDetect = document.getElementById('original-watermark-detect');
 if (origWmDetect) {
   origWmDetect.addEventListener('input', () => {
@@ -248,14 +318,12 @@ if (origWmAttack) {
   });
 }
 
-// Initial form validation state setup
+// Pengaturan status validasi awal
 validateForm('embed');
 validateForm('detect');
 validateForm('attack');
 
-// ══════════════════════════════════════════
-// SECRET KEY VISIBILITY TOGGLE
-// ══════════════════════════════════════════
+// Pengalihan visibilitas input kunci rahasia
 document.querySelectorAll('.input-toggle-vis').forEach((btn) => {
   btn.addEventListener('click', () => {
     const targetId = btn.dataset.target;
@@ -277,23 +345,19 @@ document.querySelectorAll('.input-toggle-vis').forEach((btn) => {
   });
 });
 
-// ══════════════════════════════════════════
-// ATTACK SELECTION
-// ══════════════════════════════════════════
+// Pemilihan jenis simulasi serangan
 const attackBtns = document.querySelectorAll('.attack-btn');
 
 attackBtns.forEach((btn) => {
   btn.addEventListener('click', () => {
-    attackBtns.forEach((b) => b.classList.remove('attack-btn--active'));
-    btn.classList.add('attack-btn--active');
+    attackBtns.forEach((b) => b.classList.remove('attack-btn-active'));
+    btn.classList.add('attack-btn-active');
     state.attack.selectedAttack = btn.dataset.attack;
     validateForm('attack');
   });
 });
 
-// ══════════════════════════════════════════
-// API CALLS
-// ══════════════════════════════════════════
+// Panggilan API backend
 async function apiCall(endpoint, formData) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: 'POST',
@@ -308,7 +372,7 @@ async function apiCall(endpoint, formData) {
   return response.json();
 }
 
-// ── EMBED ──
+// Alur kerja penyisipan watermark (embed)
 const btnEmbed = document.getElementById('btn-embed');
 if (btnEmbed) {
   btnEmbed.addEventListener('click', async () => {
@@ -329,7 +393,7 @@ if (btnEmbed) {
 
       document.getElementById('result-embed').hidden = false;
 
-      // Download button
+      // Tombol unduh hasil penyisipan citra
       document.getElementById('btn-download-watermarked').onclick = () => {
         downloadBase64(data.watermarked_image, 'veilux-watermarked.png');
       };
@@ -343,7 +407,7 @@ if (btnEmbed) {
   });
 }
 
-// ── DETECT ──
+// Alur kerja deteksi watermark (detect)
 const btnDetect = document.getElementById('btn-detect');
 if (btnDetect) {
   btnDetect.addEventListener('click', async () => {
@@ -362,35 +426,39 @@ if (btnDetect) {
       const data = await apiCall('/detect', formData);
 
       const statusEl = document.getElementById('detect-status');
-      const statusTextEl = statusEl.querySelector('.detect-status__text');
+      const statusTextEl = statusEl.querySelector('.detect-status-text');
       const wmTextEl = document.getElementById('detected-watermark-text');
 
       if (data.watermark_detected) {
-        statusEl.classList.remove('detect-status--fail');
-        statusEl.querySelector('.detect-status__icon').textContent = '✓';
+        statusEl.classList.remove('detect-status-fail');
+        statusEl.querySelector('.detect-status-icon').textContent = '✓';
         statusTextEl.textContent = 'Watermark Terdeteksi & Terverifikasi';
         wmTextEl.textContent = `"${data.watermark}"`;
       } else {
-        statusEl.classList.add('detect-status--fail');
-        statusEl.querySelector('.detect-status__icon').textContent = '✗';
+        statusEl.classList.add('detect-status-fail');
+        statusEl.querySelector('.detect-status-icon').textContent = '✗';
         statusTextEl.textContent = 'Watermark Tidak Terdeteksi / Integritas Rusak';
         wmTextEl.textContent = '';
       }
+
+      document.getElementById('detect-input-img').src = data.input_image;
+      document.getElementById('detect-tamper-map').src = data.tamper_map;
 
       document.getElementById('metric-nc').textContent =
         data.nc !== null ? data.nc.toFixed(4) : '--';
       document.getElementById('metric-ber').textContent =
         data.ber !== null ? data.ber.toFixed(4) : '--';
 
-      if (data.input_image) {
-        document.getElementById('detect-input-img').src = data.input_image;
-      }
-      if (data.tamper_map) {
-        document.getElementById('detect-tamper-map').src = data.tamper_map;
-      }
+      // Tampilkan statistik integritas blok
+      const validBlocksEl = document.getElementById('detect-valid-blocks');
+      const totalBlocksEl = document.getElementById('detect-total-blocks');
+      const tamperRatioEl = document.getElementById('detect-tamper-ratio');
+      if (validBlocksEl) validBlocksEl.textContent = data.valid_blocks;
+      if (totalBlocksEl) totalBlocksEl.textContent = data.total_blocks;
+      if (tamperRatioEl) tamperRatioEl.textContent = (data.tamper_ratio * 100).toFixed(1) + '%';
 
       document.getElementById('result-detect').hidden = false;
-      showToast('Analisis deteksi selesai.', 'success');
+      showToast('Analisis deteksi watermark selesai.', 'success');
     } catch (err) {
       showToast(`Gagal: ${err.message}`, 'error');
     } finally {
@@ -399,7 +467,7 @@ if (btnDetect) {
   });
 }
 
-// ── ATTACK ──
+// Alur kerja simulasi serangan (attack)
 const btnAttack = document.getElementById('btn-attack');
 if (btnAttack) {
   btnAttack.addEventListener('click', async () => {
@@ -414,9 +482,9 @@ if (btnAttack) {
     }
 
     const attackNames = {
-      jpeg90: 'JPEG Compression (Q90)',
-      jpeg70: 'JPEG Compression (Q70)',
-      jpeg50: 'JPEG Compression (Q50)',
+      jpeg_90: 'JPEG (Kualitas 90)',
+      jpeg_70: 'JPEG (Kualitas 70)',
+      jpeg_50: 'JPEG (Kualitas 50)',
       crop: 'Cropping',
       resize: 'Resize',
       noise: 'Gaussian Noise',
@@ -438,24 +506,31 @@ if (btnAttack) {
 
       document.getElementById('attack-psnr').textContent = data.psnr.toFixed(2);
       document.getElementById('attack-mse').textContent = data.mse.toFixed(5);
+
+      // Statistik integritas blok pasca-serangan
+      const attackValidBlocksEl = document.getElementById('attack-valid-blocks');
+      const attackTotalBlocksEl = document.getElementById('attack-total-blocks');
+      const attackTamperRatioEl = document.getElementById('attack-tamper-ratio');
+      if (attackValidBlocksEl) attackValidBlocksEl.textContent = data.valid_blocks;
+      if (attackTotalBlocksEl) attackTotalBlocksEl.textContent = data.total_blocks;
+      if (attackTamperRatioEl) attackTamperRatioEl.textContent = (data.tamper_ratio * 100).toFixed(1) + '%';
       document.getElementById('attack-nc').textContent =
         data.nc !== null ? data.nc.toFixed(4) : '--';
       document.getElementById('attack-ber').textContent =
         data.ber !== null ? data.ber.toFixed(4) : '--';
 
-      // Attack detect status
       const statusEl = document.getElementById('attack-detect-status');
       const statusTextEl = document.getElementById('attack-detect-text');
       const wmEl = document.getElementById('attack-detected-watermark');
 
       if (data.watermark_detected) {
-        statusEl.classList.remove('detect-status--fail');
-        statusEl.querySelector('.detect-status__icon').textContent = '✓';
+        statusEl.classList.remove('detect-status-fail');
+        statusEl.querySelector('.detect-status-icon').textContent = '✓';
         statusTextEl.textContent = 'Watermark Masih Terdeteksi (Toleransi Parsial)';
         wmEl.textContent = `"${data.watermark}"`;
       } else {
-        statusEl.classList.add('detect-status--fail');
-        statusEl.querySelector('.detect-status__icon').textContent = '✗';
+        statusEl.classList.add('detect-status-fail');
+        statusEl.querySelector('.detect-status-icon').textContent = '✗';
         statusTextEl.textContent = 'Watermark Rusak / Pola LSB Hilang (Fragile)';
         wmEl.textContent = '';
       }
@@ -470,9 +545,7 @@ if (btnAttack) {
   });
 }
 
-// ══════════════════════════════════════════
-// UTILITIES
-// ══════════════════════════════════════════
+// Fungsi utilitas pendukung
 function showLoading(text = 'Memproses...') {
   const loadingText = document.getElementById('loading-text');
   const loading = document.getElementById('loading');
@@ -490,14 +563,14 @@ function showToast(message, type = 'info') {
   if (!container) return;
 
   const toast = document.createElement('div');
-  toast.className = `toast toast--${type}`;
+  toast.className = `toast toast-${type}`;
 
   const prefix = document.createElement('span');
-  prefix.className = 'toast__prefix';
+  prefix.className = 'toast-prefix';
   prefix.textContent = type === 'success' ? '[OK]' : type === 'error' ? '[GAGAL]' : '[INFO]';
 
   const body = document.createElement('span');
-  body.className = 'toast__body';
+  body.className = 'toast-body';
   body.textContent = message;
 
   toast.appendChild(prefix);
@@ -505,7 +578,7 @@ function showToast(message, type = 'info') {
   container.appendChild(toast);
 
   setTimeout(() => {
-    toast.classList.add('toast--fade-out');
+    toast.classList.add('toast-fade-out');
     setTimeout(() => toast.remove(), 200);
   }, 4000);
 }
@@ -519,19 +592,44 @@ function downloadBase64(dataUrl, filename) {
   document.body.removeChild(a);
 }
 
-// ══════════════════════════════════════════
-// KEYBOARD SHORTCUTS
-// ══════════════════════════════════════════
-document.addEventListener('keydown', (e) => {
-  // Alt+1/2/3 to switch tabs
-  if (e.altKey && ['1', '2', '3'].includes(e.key)) {
-    e.preventDefault();
-    const modes = ['embed', 'detect', 'attack'];
-    const idx = parseInt(e.key, 10) - 1;
-    const targetTab = document.querySelector(`[data-mode="${modes[idx]}"]`);
-    if (targetTab) {
-      targetTab.click();
-      targetTab.focus();
-    }
+// Inisialisasi tema saat aplikasi pertama kali dimuat
+initTheme();
+
+// Klien live reload (mode pengembangan lokal)
+(function initLiveReload() {
+  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (!isLocal || window.location.protocol === 'file:') return;
+
+  const watchedFiles = ['index.html', 'style.css', 'app.js'];
+  const fileTimestamps = {};
+
+  async function checkFile(file) {
+    try {
+      const res = await fetch(`${file}?_t=${Date.now()}`, { method: 'HEAD', cache: 'no-store' });
+      if (!res.ok) return;
+      const lastMod = res.headers.get('Last-Modified') || res.headers.get('ETag');
+      if (!lastMod) return;
+
+      if (!fileTimestamps[file]) {
+        fileTimestamps[file] = lastMod;
+      } else if (fileTimestamps[file] !== lastMod) {
+        fileTimestamps[file] = lastMod;
+        if (file === 'style.css') {
+          const links = document.querySelectorAll('link[rel="stylesheet"]');
+          links.forEach((link) => {
+            const href = link.getAttribute('href') || '';
+            if (href.includes('style.css')) {
+              link.setAttribute('href', `style.css?_t=${Date.now()}`);
+            }
+          });
+        } else {
+          window.location.reload();
+        }
+      }
+    } catch (e) {}
   }
-});
+
+  setInterval(() => {
+    watchedFiles.forEach(checkFile);
+  }, 800);
+})();

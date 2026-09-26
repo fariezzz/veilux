@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import detect, embed
+from backend.api.routes import attack, detect, embed
 from backend.core.config import settings
 
 # Inisialisasi aplikasi FastAPI
@@ -34,6 +34,7 @@ async def health_check():
 # Registrasi router API
 app.include_router(embed.router, prefix=settings.API_PREFIX, tags=["Watermark"])
 app.include_router(detect.router, prefix=settings.API_PREFIX, tags=["Watermark"])
+app.include_router(attack.router, prefix=settings.API_PREFIX, tags=["Watermark"])
 
 
 if __name__ == "__main__":

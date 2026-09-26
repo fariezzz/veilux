@@ -3,93 +3,153 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Veilux | Image Integrity Watermarking</title>
+  <script>
+    (function () {
+      try {
+        var savedTheme = localStorage.getItem('veilux_theme');
+        var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- ══════════════ WORKBENCH HEADER ══════════════ -->
+  <!-- Header aplikasi -->
   <header class="header">
-    <div class="header__inner">
-      <div class="header__brand">
-        <div class="header__logo" aria-hidden="true">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-logo" aria-hidden="true">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <!-- Precision geometric forensics mark -->
+            <!-- Tanda geometris forensik presisi -->
             <rect x="2" y="2" width="24" height="24" rx="2" stroke="currentColor" stroke-width="1.5" class="logo-frame" />
-            <!-- Corner registration reticles -->
+            <!-- Retikel registrasi sudut -->
             <path d="M2 7h5M7 2v5M26 7h-5M21 2v5M2 21h5M7 26v-5M26 21h-5M21 26v-5" stroke="currentColor" stroke-width="1.2" class="logo-reticle" />
-            <!-- Inner carrier lattice & LSB target node -->
+            <!-- Kisi pembawa dan titik target lsb -->
             <line x1="8" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2" class="logo-grid" />
             <line x1="14" y1="8" x2="14" y2="20" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2" class="logo-grid" />
             <rect x="11.5" y="11.5" width="5" height="5" fill="var(--accent)" class="logo-node" />
           </svg>
         </div>
-        <div class="header__info">
-          <div class="header__title-row">
-            <span class="header__title">VEILUX</span>
+        <div class="header-info">
+          <div class="header-title-row">
+            <span class="header-title">VEILUX</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="theme-switcher" id="theme-toggle" role="group" aria-label="Pengaturan Tema Tampilan">
+          <div class="theme-switcher-track">
+            <button 
+              type="button" 
+              class="theme-switcher-option" 
+              id="theme-opt-light" 
+              data-theme-choice="light"
+              aria-pressed="false"
+              aria-label="Aktifkan mode terang"
+              title="Mode Terang"
+            >
+              <svg class="theme-switcher-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <span class="theme-switcher-label">TERANG</span>
+            </button>
+            <button 
+              type="button" 
+              class="theme-switcher-option" 
+              id="theme-opt-dark" 
+              data-theme-choice="dark"
+              aria-pressed="false"
+              aria-label="Aktifkan mode gelap"
+              title="Mode Gelap"
+            >
+              <svg class="theme-switcher-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+              <span class="theme-switcher-label">GELAP</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- ══════════════ WORKFLOW NAVIGATION ══════════════ -->
+  <!-- Navigasi alur kerja -->
   <nav class="nav-bar" aria-label="Alur Kerja Aplikasi">
-    <div class="nav-bar__inner">
+    <div class="nav-bar-inner">
       <div class="tabs" role="tablist">
-        <button class="tab tab--active" data-mode="embed" role="tab" aria-selected="true" id="tab-embed">
-          <span class="tab__index">01</span>
-          <span class="tab__content">
-            <span class="tab__name">EMBED</span>
+        <button class="tab tab-active" data-mode="embed" role="tab" aria-selected="true" id="tab-embed">
+          <span class="tab-index">01</span>
+          <span class="tab-content">
+            <span class="tab-name">EMBED</span>
           </span>
         </button>
         <button class="tab" data-mode="detect" role="tab" aria-selected="false" id="tab-detect">
-          <span class="tab__index">02</span>
-          <span class="tab__content">
-            <span class="tab__name">DETECT</span>
+          <span class="tab-index">02</span>
+          <span class="tab-content">
+            <span class="tab-name">DETECT</span>
           </span>
         </button>
         <button class="tab" data-mode="attack" role="tab" aria-selected="false" id="tab-attack">
-          <span class="tab__index">03</span>
-          <span class="tab__content">
-            <span class="tab__name">ATTACK</span>
+          <span class="tab-index">03</span>
+          <span class="tab-content">
+            <span class="tab-name">ATTACK</span>
           </span>
         </button>
       </div>
     </div>
   </nav>
 
-  <!-- ══════════════ MAIN WORKBENCH ══════════════ -->
+  <!-- Area kerja utama -->
   <main class="main">
-    <!-- ══════════════ EMBED WORKFLOW ══════════════ -->
+    <!-- Alur kerja penyisipan watermark -->
     <section class="panel" id="panel-embed" aria-labelledby="tab-embed">
-      <div class="panel__header">
-        <div class="panel__heading">
-          <h2 class="panel__title">Alur Kerja 01: Penyisipan Watermark</h2>
-          <p class="panel__description">Menyisipkan payload teks ke dalam Least Significant Bit (LSB) citra sampul menggunakan sebaran pseudo-random berbasis secret key.</p>
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2 class="panel-title">Alur Kerja 01: Penyisipan Watermark</h2>
+          <p class="panel-description">Menyisipkan payload teks ke dalam Least Significant Bit (LSB) citra sampul menggunakan sebaran pseudo-random berbasis secret key.</p>
         </div>
-        <span class="panel__badge">METODE: SPATIAL LSB 1-BIT</span>
+        <span class="panel-badge">METODE: SPATIAL LSB 1-BIT</span>
       </div>
 
-      <!-- Upload Zone -->
+      <!-- Area unggah citra sampul -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">A</span>
-          <span class="section-label__title">Citra Sampul (Cover Image)</span>
-          <span class="section-label__meta">Citra asli sebelum penyisipan</span>
+          <span class="section-label-index">A</span>
+          <span class="section-label-title">Citra Sampul (Cover Image)</span>
+          <span class="section-label-meta">Citra asli sebelum penyisipan</span>
         </div>
 
         <div class="upload" id="upload-embed">
-          <div class="upload__zone" id="dropzone-embed" tabindex="0" role="button" aria-label="Unggah citra sampul">
-            <div class="upload__reticle">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="upload__icon">
+          <div class="upload-zone" id="dropzone-embed" tabindex="0" role="button" aria-label="Unggah citra sampul">
+            <div class="upload-reticle">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
                 <path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>
                 <rect x="7" y="7" width="10" height="10" rx="1"/>
                 <path d="M7 13l2.5-2.5 3 3 1.5-1.5 3 3"/>
                 <circle cx="10" cy="9.5" r="0.75" fill="currentColor"/>
               </svg>
             </div>
-            <p class="upload__primary-text">Seret & letakkan citra ke area ini, atau <span class="upload__browse">pilih berkas dari perangkat</span></p>
-            <div class="upload__spec-row">
+            <p class="upload-primary-text">Seret & letakkan citra ke area ini, atau <span class="upload-browse">pilih berkas dari perangkat</span></p>
+            <div class="upload-spec-row">
               <span class="spec-tag">PNG</span>
               <span class="spec-tag">JPEG</span>
               <span class="spec-sep">&bull;</span>
@@ -100,16 +160,16 @@
             <input type="file" id="file-embed" accept="image/png,image/jpeg" hidden />
           </div>
 
-          <div class="upload__preview" id="preview-embed" hidden>
-            <div class="preview__canvas">
+          <div class="upload-preview" id="preview-embed" hidden>
+            <div class="preview-canvas">
               <img id="img-embed" alt="Pratinjau citra sampul" />
             </div>
-            <div class="preview__footer">
-              <div class="preview__meta">
-                <span class="preview__meta-label">BERKAS TERPILIH</span>
-                <span class="upload__info" id="info-embed"></span>
+            <div class="preview-footer">
+              <div class="preview-meta">
+                <span class="preview-meta-label">BERKAS TERPILIH</span>
+                <span class="upload-info" id="info-embed"></span>
               </div>
-              <button type="button" class="upload__remove" id="remove-embed" title="Hapus citra terpilih">
+              <button type="button" class="upload-remove" id="remove-embed" title="Hapus citra terpilih">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -121,17 +181,17 @@
         </div>
       </div>
 
-      <!-- Inputs -->
+      <!-- Parameter input penyisipan -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">B</span>
-          <span class="section-label__title">Parameter Penyisipan</span>
-          <span class="section-label__meta">Payload data dan kunci kendali posisi</span>
+          <span class="section-label-index">B</span>
+          <span class="section-label-title">Parameter Penyisipan</span>
+          <span class="section-label-meta">Payload data dan kunci kendali posisi</span>
         </div>
 
         <div class="form-grid">
           <div class="form-group">
-            <div class="form-group__head">
+            <div class="form-group-head">
               <label for="watermark-text" class="form-label">Payload Watermark</label>
               <span class="input-counter" id="watermark-counter">0/64</span>
             </div>
@@ -147,7 +207,7 @@
           </div>
 
           <div class="form-group">
-            <div class="form-group__head">
+            <div class="form-group-head">
               <label for="secret-key-embed" class="form-label">Secret Key</label>
               <span class="param-badge">PRNG SEED</span>
             </div>
@@ -169,9 +229,9 @@
         </div>
       </div>
 
-      <!-- Action -->
+      <!-- Tombol aksi penyisipan -->
       <div class="action-block">
-        <button class="btn btn--primary" id="btn-embed" disabled>
+        <button class="btn btn-primary" id="btn-embed" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
@@ -179,32 +239,32 @@
         </button>
       </div>
 
-      <!-- Result Embed -->
+      <!-- Hasil penyisipan watermark -->
       <div class="result" id="result-embed" hidden>
-        <div class="result__banner">
-          <div class="result__banner-title">
-            <span class="result__tag">OUTPUT ANALISIS</span>
-            <h3 class="result__title">Hasil Penyisipan (Stego-Image)</h3>
+        <div class="result-banner">
+          <div class="result-banner-title">
+            <span class="result-tag">OUTPUT ANALISIS</span>
+            <h3 class="result-title">Hasil Penyisipan (Stego-Image)</h3>
           </div>
-          <span class="result__timestamp">STATUS: PROSES SELESAI</span>
+          <span class="result-timestamp">STATUS: PROSES SELESAI</span>
         </div>
 
-        <div class="result__images">
-          <div class="result__image-card">
-            <div class="result__image-header">
-              <span class="result__label">Citra Asli (Cover)</span>
-              <span class="result__meta-tag">ORIGINAL</span>
+        <div class="result-images">
+          <div class="result-image-card">
+            <div class="result-image-header">
+              <span class="result-label">Citra Asli (Cover)</span>
+              <span class="result-meta-tag">ORIGINAL</span>
             </div>
-            <div class="result__image-wrap">
+            <div class="result-image-wrap">
               <img id="result-original" alt="Original image" />
             </div>
           </div>
-          <div class="result__image-card">
-            <div class="result__image-header">
-              <span class="result__label">Citra Ber-watermark (Stego)</span>
-              <span class="result__meta-tag result__meta-tag--accent">WATERMARKED</span>
+          <div class="result-image-card">
+            <div class="result-image-header">
+              <span class="result-label">Citra Ber-watermark (Stego)</span>
+              <span class="result-meta-tag result-meta-tag-accent">WATERMARKED</span>
             </div>
-            <div class="result__image-wrap">
+            <div class="result-image-wrap">
               <img id="result-watermarked" alt="Watermarked image" />
             </div>
           </div>
@@ -212,35 +272,35 @@
 
         <div class="metrics">
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">PSNR</span>
-              <span class="metric-card__title">Peak Signal-to-Noise Ratio</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">PSNR</span>
+              <span class="metric-card-title">Peak Signal-to-Noise Ratio</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="metric-psnr">--</span>
-              <span class="metric-card__unit">dB</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="metric-psnr">--</span>
+              <span class="metric-card-unit">dB</span>
             </div>
-            <div class="metric-card__foot">
-              <span class="metric-card__hint">Ambang batas kualitas: &gt; 30 dB (Imperceptible)</span>
+            <div class="metric-card-foot">
+              <span class="metric-card-hint">Ambang batas kualitas: &gt; 30 dB (Imperceptible)</span>
             </div>
           </div>
 
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">MSE</span>
-              <span class="metric-card__title">Mean Squared Error</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">MSE</span>
+              <span class="metric-card-title">Mean Squared Error</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="metric-mse">--</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="metric-mse">--</span>
             </div>
-            <div class="metric-card__foot">
-              <span class="metric-card__hint">Ambang batas distorsi: mendekati 0.0 (Minimal)</span>
+            <div class="metric-card-foot">
+              <span class="metric-card-hint">Ambang batas distorsi: mendekati 0.0 (Minimal)</span>
             </div>
           </div>
         </div>
 
-        <div class="result__actions">
-          <button class="btn btn--secondary" id="btn-download-watermarked">
+        <div class="result-actions">
+          <button class="btn btn-secondary" id="btn-download-watermarked">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
@@ -250,33 +310,33 @@
       </div>
     </section>
 
-    <!-- ══════════════ DETECT WORKFLOW ══════════════ -->
+    <!-- Alur kerja deteksi watermark -->
     <section class="panel" id="panel-detect" aria-labelledby="tab-detect" hidden>
-      <div class="panel__header">
-        <div class="panel__heading">
-          <h2 class="panel__title">Alur Kerja 02: Deteksi & Verifikasi Integritas</h2>
-          <p class="panel__description">Mengekstrak payload dari bit LSB dan memetakan integritas citra piksel demi piksel untuk menghasilkan Tamper Map.</p>
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2 class="panel-title">Alur Kerja 02: Deteksi & Verifikasi Integritas</h2>
+          <p class="panel-description">Mengekstrak payload dari bit LSB dan memetakan integritas citra piksel demi piksel untuk menghasilkan Tamper Map.</p>
         </div>
-        <span class="panel__badge">ANALISIS: EKSTRAKSI & TAMPER MAP</span>
+        <span class="panel-badge">ANALISIS: EKSTRAKSI & TAMPER MAP</span>
       </div>
 
-      <!-- Upload Zone -->
+      <!-- Area unggah citra sampul -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">A</span>
-          <span class="section-label__title">Citra Uji (Input Image)</span>
-          <span class="section-label__meta">Citra yang telah di-embed atau dicurigai mengalami modifikasi</span>
+          <span class="section-label-index">A</span>
+          <span class="section-label-title">Citra Uji (Input Image)</span>
+          <span class="section-label-meta">Citra yang telah di-embed atau dicurigai mengalami modifikasi</span>
         </div>
 
         <div class="upload" id="upload-detect">
-          <div class="upload__zone" id="dropzone-detect" tabindex="0" role="button" aria-label="Unggah citra untuk deteksi">
-            <div class="upload__reticle">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="upload__icon">
+          <div class="upload-zone" id="dropzone-detect" tabindex="0" role="button" aria-label="Unggah citra untuk deteksi">
+            <div class="upload-reticle">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
             </div>
-            <p class="upload__primary-text">Seret & letakkan citra ber-watermark di sini, atau <span class="upload__browse">pilih berkas</span></p>
-            <div class="upload__spec-row">
+            <p class="upload-primary-text">Seret & letakkan citra ber-watermark di sini, atau <span class="upload-browse">pilih berkas</span></p>
+            <div class="upload-spec-row">
               <span class="spec-tag">PNG</span>
               <span class="spec-tag">JPEG</span>
               <span class="spec-sep">&bull;</span>
@@ -285,16 +345,16 @@
             <input type="file" id="file-detect" accept="image/png,image/jpeg" hidden />
           </div>
 
-          <div class="upload__preview" id="preview-detect" hidden>
-            <div class="preview__canvas">
+          <div class="upload-preview" id="preview-detect" hidden>
+            <div class="preview-canvas">
               <img id="img-detect" alt="Pratinjau citra deteksi" />
             </div>
-            <div class="preview__footer">
-              <div class="preview__meta">
-                <span class="preview__meta-label">BERKAS TERPILIH</span>
-                <span class="upload__info" id="info-detect"></span>
+            <div class="preview-footer">
+              <div class="preview-meta">
+                <span class="preview-meta-label">BERKAS TERPILIH</span>
+                <span class="upload-info" id="info-detect"></span>
               </div>
-              <button type="button" class="upload__remove" id="remove-detect" title="Hapus citra terpilih">
+              <button type="button" class="upload-remove" id="remove-detect" title="Hapus citra terpilih">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -306,17 +366,17 @@
         </div>
       </div>
 
-      <!-- Inputs -->
+      <!-- Parameter input penyisipan -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">B</span>
-          <span class="section-label__title">Parameter Verifikasi</span>
-          <span class="section-label__meta">Kunci dekoding dan referensi watermark pembanding</span>
+          <span class="section-label-index">B</span>
+          <span class="section-label-title">Parameter Verifikasi</span>
+          <span class="section-label-meta">Kunci dekoding dan referensi watermark pembanding</span>
         </div>
 
         <div class="form-grid">
           <div class="form-group">
-            <div class="form-group__head">
+            <div class="form-group-head">
               <label for="secret-key-detect" class="form-label">Secret Key</label>
               <span class="param-badge">WAJIB</span>
             </div>
@@ -337,7 +397,7 @@
           </div>
 
           <div class="form-group">
-            <div class="form-group__head">
+            <div class="form-group-head">
               <label for="original-watermark-detect" class="form-label">Watermark Asli <span class="label-optional">(Opsional)</span></label>
               <span class="input-counter" id="original-watermark-detect-counter">0/64</span>
             </div>
@@ -354,9 +414,9 @@
         </div>
       </div>
 
-      <!-- Action -->
+      <!-- Tombol aksi penyisipan -->
       <div class="action-block">
-        <button class="btn btn--primary" id="btn-detect" disabled>
+        <button class="btn btn-primary" id="btn-detect" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -367,73 +427,107 @@
         </div>
       </div>
 
-      <!-- Result Detect -->
+      <!-- Hasil deteksi watermark -->
       <div class="result" id="result-detect" hidden>
-        <div class="result__banner">
-          <div class="result__banner-title">
-            <span class="result__tag">HASIL DETEKSI</span>
-            <h3 class="result__title">Verifikasi Integritas & Tamper Localization</h3>
+        <div class="result-banner">
+          <div class="result-banner-title">
+            <span class="result-tag">HASIL DETEKSI</span>
+            <h3 class="result-title">Verifikasi Integritas & Tamper Localization</h3>
           </div>
-          <span class="result__timestamp">STATUS: DETEKSI SELESAI</span>
+          <span class="result-timestamp">STATUS: DETEKSI SELESAI</span>
         </div>
 
         <div class="detect-status" id="detect-status">
-          <div class="detect-status__icon" aria-hidden="true">✓</div>
-          <div class="detect-status__details">
-            <div class="detect-status__text">Watermark Terdeteksi</div>
-            <div class="detect-status__watermark" id="detected-watermark-text"></div>
+          <div class="detect-status-icon" aria-hidden="true">✓</div>
+          <div class="detect-status-details">
+            <div class="detect-status-text">Watermark Terdeteksi</div>
+            <div class="detect-status-watermark" id="detected-watermark-text"></div>
           </div>
         </div>
 
         <div class="metrics">
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">NC</span>
-              <span class="metric-card__title">Normalized Correlation</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">NC</span>
+              <span class="metric-card-title">Normalized Correlation</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="metric-nc">--</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="metric-nc">--</span>
             </div>
-            <div class="metric-card__foot">
-              <span class="metric-card__hint">Identik: 1.0000 | Ambang batas degradasi: &lt; 0.8000</span>
+            <div class="metric-card-foot">
+              <span class="metric-card-hint">Identik: 1.0000 | Ambang batas degradasi: &lt; 0.8000</span>
             </div>
           </div>
 
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">BER</span>
-              <span class="metric-card__title">Bit Error Rate</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">BER</span>
+              <span class="metric-card-title">Bit Error Rate</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="metric-ber">--</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="metric-ber">--</span>
             </div>
-            <div class="metric-card__foot">
-              <span class="metric-card__hint">Bebas galat: 0.0000 | Ambang batas kritis: &gt; 0.1500</span>
+            <div class="metric-card-foot">
+              <span class="metric-card-hint">Bebas galat: 0.0000 | Ambang batas kritis: &gt; 0.1500</span>
             </div>
           </div>
         </div>
 
         <div class="tamper-section">
-          <div class="tamper-section__head">
-            <h4 class="tamper-section__title">Peta Modifikasi Citra (Tamper Map)</h4>
-            <span class="tamper-section__legend">Piksel putih/merah menandakan bit LSB yang termodifikasi</span>
+          <div class="tamper-section-head">
+            <h4 class="tamper-section-title">Statistik Integritas Blok</h4>
+            <span class="tamper-section-legend">Citra dibagi menjadi blok 32×32 piksel untuk lokalisasi area modifikasi</span>
           </div>
-          <div class="tamper-section__images">
-            <div class="result__image-card">
-              <div class="result__image-header">
-                <span class="result__label">Citra Masukan</span>
-                <span class="result__meta-tag">INPUT</span>
+          <div class="metrics">
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-label">BLOK VALID</span>
+                <span class="metric-card-title">Blok Lolos Verifikasi</span>
               </div>
-              <div class="result__image-wrap">
+              <div class="metric-card-body">
+                <span class="metric-card-value" id="detect-valid-blocks">--</span>
+                <span class="metric-card-unit">/ <span id="detect-total-blocks">--</span></span>
+              </div>
+              <div class="metric-card-foot">
+                <span class="metric-card-hint">Blok integritas HMAC cocok dengan nilai saat embedding</span>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-label">TAMPER RATIO</span>
+                <span class="metric-card-title">Proporsi Area Termodifikasi</span>
+              </div>
+              <div class="metric-card-body">
+                <span class="metric-card-value" id="detect-tamper-ratio">--</span>
+              </div>
+              <div class="metric-card-foot">
+                <span class="metric-card-hint">Utuh: 0.0% | Seluruh citra rusak: 100%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tamper-section">
+          <div class="tamper-section-head">
+            <h4 class="tamper-section-title">Peta Modifikasi Citra (Tamper Map)</h4>
+            <span class="tamper-section-legend">Piksel putih/merah menandakan bit LSB yang termodifikasi</span>
+          </div>
+          <div class="tamper-section-images">
+            <div class="result-image-card">
+              <div class="result-image-header">
+                <span class="result-label">Citra Masukan</span>
+                <span class="result-meta-tag">INPUT</span>
+              </div>
+              <div class="result-image-wrap">
                 <img id="detect-input-img" alt="Input image" />
               </div>
             </div>
-            <div class="result__image-card">
-              <div class="result__image-header">
-                <span class="result__label">Tamper Map</span>
-                <span class="result__meta-tag result__meta-tag--danger">TAMPER MAP</span>
+            <div class="result-image-card">
+              <div class="result-image-header">
+                <span class="result-label">Tamper Map</span>
+                <span class="result-meta-tag result-meta-tag-danger">TAMPER MAP</span>
               </div>
-              <div class="result__image-wrap result__image-wrap--tamper">
+              <div class="result-image-wrap result-image-wrap-tamper">
                 <img id="detect-tamper-map" alt="Tamper map" />
               </div>
             </div>
@@ -442,33 +536,33 @@
       </div>
     </section>
 
-    <!-- ══════════════ ATTACK WORKFLOW ══════════════ -->
+    <!-- Alur kerja simulasi serangan -->
     <section class="panel" id="panel-attack" aria-labelledby="tab-attack" hidden>
-      <div class="panel__header">
-        <div class="panel__heading">
-          <h2 class="panel__title">Alur Kerja 03: Uji Ketahanan Terhadap Serangan Citra</h2>
-          <p class="panel__description">Menguji kerapuhan (fragility) skema LSB terhadap manipulasi citra: kompresi lossy, pemotongan geometri, noise, dan manipulasi pencahayaan.</p>
+      <div class="panel-header">
+        <div class="panel-heading">
+          <h2 class="panel-title">Alur Kerja 03: Uji Ketahanan Terhadap Serangan Citra</h2>
+          <p class="panel-description">Menguji kerapuhan (fragility) skema LSB terhadap manipulasi citra: kompresi lossy, pemotongan geometri, noise, dan manipulasi pencahayaan.</p>
         </div>
-        <span class="panel__badge">SIMULASI: FRAGILITY STRESS-TEST</span>
+        <span class="panel-badge">SIMULASI: FRAGILITY STRESS-TEST</span>
       </div>
 
-      <!-- Upload Zone -->
+      <!-- Area unggah citra sampul -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">A</span>
-          <span class="section-label__title">Citra Uji Ber-watermark</span>
-          <span class="section-label__meta">Citra stego yang akan diberi perlakuan serangan</span>
+          <span class="section-label-index">A</span>
+          <span class="section-label-title">Citra Uji Ber-watermark</span>
+          <span class="section-label-meta">Citra stego yang akan diberi perlakuan serangan</span>
         </div>
 
         <div class="upload" id="upload-attack">
-          <div class="upload__zone" id="dropzone-attack" tabindex="0" role="button" aria-label="Unggah citra untuk uji serangan">
-            <div class="upload__reticle">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="upload__icon">
+          <div class="upload-zone" id="dropzone-attack" tabindex="0" role="button" aria-label="Unggah citra untuk uji serangan">
+            <div class="upload-reticle">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
             </div>
-            <p class="upload__primary-text">Seret & letakkan citra ber-watermark di sini, atau <span class="upload__browse">pilih berkas</span></p>
-            <div class="upload__spec-row">
+            <p class="upload-primary-text">Seret & letakkan citra ber-watermark di sini, atau <span class="upload-browse">pilih berkas</span></p>
+            <div class="upload-spec-row">
               <span class="spec-tag">PNG</span>
               <span class="spec-tag">JPEG</span>
               <span class="spec-sep">&bull;</span>
@@ -477,16 +571,16 @@
             <input type="file" id="file-attack" accept="image/png,image/jpeg" hidden />
           </div>
 
-          <div class="upload__preview" id="preview-attack" hidden>
-            <div class="preview__canvas">
+          <div class="upload-preview" id="preview-attack" hidden>
+            <div class="preview-canvas">
               <img id="img-attack" alt="Pratinjau citra serangan" />
             </div>
-            <div class="preview__footer">
-              <div class="preview__meta">
-                <span class="preview__meta-label">BERKAS TERPILIH</span>
-                <span class="upload__info" id="info-attack"></span>
+            <div class="preview-footer">
+              <div class="preview-meta">
+                <span class="preview-meta-label">BERKAS TERPILIH</span>
+                <span class="upload-info" id="info-attack"></span>
               </div>
-              <button type="button" class="upload__remove" id="remove-attack" title="Hapus citra terpilih">
+              <button type="button" class="upload-remove" id="remove-attack" title="Hapus citra terpilih">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -498,17 +592,17 @@
         </div>
       </div>
 
-      <!-- Inputs -->
+      <!-- Parameter input penyisipan -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">B</span>
-          <span class="section-label__title">Parameter Kunci & Evaluasi</span>
-          <span class="section-label__meta">Kunci dekoding dan referensi evaluasi metrik</span>
+          <span class="section-label-index">B</span>
+          <span class="section-label-title">Parameter Kunci & Evaluasi</span>
+          <span class="section-label-meta">Kunci dekoding dan referensi evaluasi metrik</span>
         </div>
 
         <div class="form-grid">
           <div class="form-group">
-            <div class="form-group__head">
+            <div class="form-group-head">
               <label for="secret-key-attack" class="form-label">Secret Key</label>
               <span class="param-badge">WAJIB</span>
             </div>
@@ -529,7 +623,7 @@
           </div>
 
           <div class="form-group">
-            <div class="form-group__head">
+            <div class="form-group-head">
               <label for="original-watermark-attack" class="form-label">Watermark Asli <span class="label-optional">(Opsional)</span></label>
               <span class="input-counter" id="original-watermark-attack-counter">0/64</span>
             </div>
@@ -546,128 +640,128 @@
         </div>
       </div>
 
-      <!-- Attack Grid -->
+      <!-- Pilihan jenis serangan -->
       <div class="workspace-section">
         <div class="section-label">
-          <span class="section-label__index">C</span>
-          <span class="section-label__title">Pilih Jenis Serangan Manipulasi</span>
-          <span class="section-label__meta">Pilih satu metode gangguan untuk menguji kerapuhan skema</span>
+          <span class="section-label-index">C</span>
+          <span class="section-label-title">Pilih Jenis Serangan Manipulasi</span>
+          <span class="section-label-meta">Pilih satu metode gangguan untuk menguji kerapuhan skema</span>
         </div>
 
         <div class="attack-grid">
-          <!-- JPEG 90 -->
-          <button type="button" class="attack-btn" data-attack="jpeg90">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+          <!-- Kompresi jpeg 90 -->
+          <button type="button" class="attack-btn" data-attack="jpeg_90">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                 <path d="M7 8h10M7 12h10M7 16h6"/>
                 <path d="M17 14l2 2-2 2"/>
               </svg>
-              <span class="attack-btn__badge">LOSSY</span>
+              <span class="attack-btn-badge">LOSSY</span>
             </div>
-            <span class="attack-btn__name">JPEG Q90</span>
-            <span class="attack-btn__spec">Kompresi Ringan</span>
+            <span class="attack-btn-name">JPEG Q90</span>
+            <span class="attack-btn-spec">Kompresi Ringan</span>
           </button>
 
-          <!-- JPEG 70 -->
-          <button type="button" class="attack-btn" data-attack="jpeg70">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+          <!-- Kompresi jpeg 70 -->
+          <button type="button" class="attack-btn" data-attack="jpeg_70">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                 <path d="M7 8h10M7 12h7M7 16h4"/>
                 <path d="M16 13l3 3-3 3"/>
               </svg>
-              <span class="attack-btn__badge">LOSSY</span>
+              <span class="attack-btn-badge">LOSSY</span>
             </div>
-            <span class="attack-btn__name">JPEG Q70</span>
-            <span class="attack-btn__spec">Kompresi Sedang</span>
+            <span class="attack-btn-name">JPEG Q70</span>
+            <span class="attack-btn-spec">Kompresi Sedang</span>
           </button>
 
-          <!-- JPEG 50 -->
-          <button type="button" class="attack-btn" data-attack="jpeg50">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+          <!-- Kompresi jpeg 50 -->
+          <button type="button" class="attack-btn" data-attack="jpeg_50">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                 <path d="M7 8h8M7 12h5M7 16h3"/>
                 <path d="M15 12l4 4-4 4"/>
               </svg>
-              <span class="attack-btn__badge">LOSSY</span>
+              <span class="attack-btn-badge">LOSSY</span>
             </div>
-            <span class="attack-btn__name">JPEG Q50</span>
-            <span class="attack-btn__spec">Kompresi Berat</span>
+            <span class="attack-btn-name">JPEG Q50</span>
+            <span class="attack-btn-spec">Kompresi Berat</span>
           </button>
 
-          <!-- Crop -->
+          <!-- Pemotongan citra -->
           <button type="button" class="attack-btn" data-attack="crop">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>
               </svg>
-              <span class="attack-btn__badge">GEOMETRI</span>
+              <span class="attack-btn-badge">GEOMETRI</span>
             </div>
-            <span class="attack-btn__name">Cropping</span>
-            <span class="attack-btn__spec">Pemotongan Sudut</span>
+            <span class="attack-btn-name">Cropping</span>
+            <span class="attack-btn-spec">Pemotongan Sudut</span>
           </button>
 
-          <!-- Resize -->
+          <!-- Ubah ukuran citra -->
           <button type="button" class="attack-btn" data-attack="resize">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
                 <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
               </svg>
-              <span class="attack-btn__badge">SKALA</span>
+              <span class="attack-btn-badge">SKALA</span>
             </div>
-            <span class="attack-btn__name">Resize</span>
-            <span class="attack-btn__spec">Resampling Resolusi</span>
+            <span class="attack-btn-name">Resize</span>
+            <span class="attack-btn-spec">Resampling Resolusi</span>
           </button>
 
-          <!-- Noise -->
+          <!-- Derau gaussian -->
           <button type="button" class="attack-btn" data-attack="noise">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <path d="M2 12h3l2-7 3 14 3-12 2 8 2-5 2 4 3-2h2"/>
               </svg>
-              <span class="attack-btn__badge">NOISE</span>
+              <span class="attack-btn-badge">NOISE</span>
             </div>
-            <span class="attack-btn__name">Gaussian Noise</span>
-            <span class="attack-btn__spec">Derau Acak Gauss</span>
+            <span class="attack-btn-name">Gaussian Noise</span>
+            <span class="attack-btn-spec">Derau Acak Gauss</span>
           </button>
 
-          <!-- Brightness -->
+          <!-- Pengaturan kecerahan -->
           <button type="button" class="attack-btn" data-attack="brightness">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <circle cx="12" cy="12" r="4"/>
                 <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
                 <line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/>
                 <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
                 <line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>
               </svg>
-              <span class="attack-btn__badge">LUM</span>
+              <span class="attack-btn-badge">LUM</span>
             </div>
-            <span class="attack-btn__name">Brightness</span>
-            <span class="attack-btn__spec">Pergeseran Terang</span>
+            <span class="attack-btn-name">Brightness</span>
+            <span class="attack-btn-spec">Pergeseran Terang</span>
           </button>
 
-          <!-- Contrast -->
+          <!-- Pengaturan kontras -->
           <button type="button" class="attack-btn" data-attack="contrast">
-            <div class="attack-btn__head">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn__icon">
+            <div class="attack-btn-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="attack-btn-icon">
                 <circle cx="12" cy="12" r="9"/>
                 <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
               </svg>
-              <span class="attack-btn__badge">GAMMA</span>
+              <span class="attack-btn-badge">GAMMA</span>
             </div>
-            <span class="attack-btn__name">Contrast</span>
-            <span class="attack-btn__spec">Dinamika Kontras</span>
+            <span class="attack-btn-name">Contrast</span>
+            <span class="attack-btn-spec">Dinamika Kontras</span>
           </button>
         </div>
       </div>
 
-      <!-- Action -->
+      <!-- Tombol aksi penyisipan -->
       <div class="action-block">
-        <button class="btn btn--primary btn--danger" id="btn-attack" disabled>
+        <button class="btn btn-primary btn-danger" id="btn-attack" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
@@ -678,122 +772,157 @@
         </div>
       </div>
 
-      <!-- Result Attack -->
+      <!-- Hasil simulasi serangan -->
       <div class="result" id="result-attack" hidden>
-        <div class="result__banner">
-          <div class="result__banner-title">
-            <span class="result__tag result__tag--danger">EVALUASI KETAHANAN</span>
-            <h3 class="result__title">Hasil Uji Serangan Manipulasi</h3>
+        <div class="result-banner">
+          <div class="result-banner-title">
+            <span class="result-tag result-tag-danger">EVALUASI KETAHANAN</span>
+            <h3 class="result-title">Hasil Uji Serangan Manipulasi</h3>
           </div>
           <div class="attack-result-header" id="attack-result-header"></div>
         </div>
 
-        <div class="result__images result__images--three">
-          <div class="result__image-card">
-            <div class="result__image-header">
-              <span class="result__label">Sebelum Serangan</span>
-              <span class="result__meta-tag">SEBELUM</span>
+        <div class="result-images result-images-three">
+          <div class="result-image-card">
+            <div class="result-image-header">
+              <span class="result-label">Sebelum Serangan</span>
+              <span class="result-meta-tag">SEBELUM</span>
             </div>
-            <div class="result__image-wrap">
+            <div class="result-image-wrap">
               <img id="attack-before" alt="Before attack" />
             </div>
           </div>
-          <div class="result__image-card">
-            <div class="result__image-header">
-              <span class="result__label">Setelah Serangan</span>
-              <span class="result__meta-tag result__meta-tag--warning">SETELAH</span>
+          <div class="result-image-card">
+            <div class="result-image-header">
+              <span class="result-label">Setelah Serangan</span>
+              <span class="result-meta-tag result-meta-tag-warning">SETELAH</span>
             </div>
-            <div class="result__image-wrap">
+            <div class="result-image-wrap">
               <img id="attack-after" alt="After attack" />
             </div>
           </div>
-          <div class="result__image-card">
-            <div class="result__image-header">
-              <span class="result__label">Tamper Map</span>
-              <span class="result__meta-tag result__meta-tag--danger">TAMPER MAP</span>
+          <div class="result-image-card">
+            <div class="result-image-header">
+              <span class="result-label">Tamper Map</span>
+              <span class="result-meta-tag result-meta-tag-danger">TAMPER MAP</span>
             </div>
-            <div class="result__image-wrap result__image-wrap--tamper">
+            <div class="result-image-wrap result-image-wrap-tamper">
               <img id="attack-tamper" alt="Tamper map after attack" />
             </div>
           </div>
         </div>
 
-        <div class="metrics metrics--four">
+        <div class="metrics metrics-four">
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">PSNR</span>
-              <span class="metric-card__title">Peak Signal-to-Noise</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">PSNR</span>
+              <span class="metric-card-title">Peak Signal-to-Noise</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="attack-psnr">--</span>
-              <span class="metric-card__unit">dB</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="attack-psnr">--</span>
+              <span class="metric-card-unit">dB</span>
             </div>
           </div>
 
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">MSE</span>
-              <span class="metric-card__title">Mean Squared Error</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">MSE</span>
+              <span class="metric-card-title">Mean Squared Error</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="attack-mse">--</span>
-            </div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">NC</span>
-              <span class="metric-card__title">Normalized Correlation</span>
-            </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="attack-nc">--</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="attack-mse">--</span>
             </div>
           </div>
 
           <div class="metric-card">
-            <div class="metric-card__head">
-              <span class="metric-card__label">BER</span>
-              <span class="metric-card__title">Bit Error Rate</span>
+            <div class="metric-card-head">
+              <span class="metric-card-label">NC</span>
+              <span class="metric-card-title">Normalized Correlation</span>
             </div>
-            <div class="metric-card__body">
-              <span class="metric-card__value" id="attack-ber">--</span>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="attack-nc">--</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-head">
+              <span class="metric-card-label">BER</span>
+              <span class="metric-card-title">Bit Error Rate</span>
+            </div>
+            <div class="metric-card-body">
+              <span class="metric-card-value" id="attack-ber">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statistik integritas blok pasca-serangan -->
+        <div class="tamper-section">
+          <div class="tamper-section-head">
+            <h4 class="tamper-section-title">Statistik Integritas Blok Pasca-Serangan</h4>
+            <span class="tamper-section-legend">Menunjukkan dampak serangan terhadap integritas blok 32×32 piksel</span>
+          </div>
+          <div class="metrics">
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-label">BLOK VALID</span>
+                <span class="metric-card-title">Blok Lolos Verifikasi</span>
+              </div>
+              <div class="metric-card-body">
+                <span class="metric-card-value" id="attack-valid-blocks">--</span>
+                <span class="metric-card-unit">/ <span id="attack-total-blocks">--</span></span>
+              </div>
+              <div class="metric-card-foot">
+                <span class="metric-card-hint">Blok dengan integritas HMAC masih cocok setelah serangan</span>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-card-head">
+                <span class="metric-card-label">TAMPER RATIO</span>
+                <span class="metric-card-title">Proporsi Area Rusak</span>
+              </div>
+              <div class="metric-card-body">
+                <span class="metric-card-value" id="attack-tamper-ratio">--</span>
+              </div>
+              <div class="metric-card-foot">
+                <span class="metric-card-hint">Utuh: 0.0% | Seluruh citra rusak: 100%</span>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="detect-status" id="attack-detect-status">
-          <div class="detect-status__icon" aria-hidden="true">✓</div>
-          <div class="detect-status__details">
-            <div class="detect-status__text" id="attack-detect-text">Watermark Terdeteksi</div>
-            <div class="detect-status__watermark" id="attack-detected-watermark"></div>
+          <div class="detect-status-icon" aria-hidden="true">✓</div>
+          <div class="detect-status-details">
+            <div class="detect-status-text" id="attack-detect-text">Watermark Terdeteksi</div>
+            <div class="detect-status-watermark" id="attack-detected-watermark"></div>
           </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- ══════════════ LOADING DIALOG ══════════════ -->
+  <!-- Dialog pemrosesan -->
   <div class="loading-overlay" id="loading" hidden role="dialog" aria-modal="true" aria-live="assertive">
     <div class="loading-card">
-      <div class="loading-card__head">
-        <span class="loading-card__tag">OPERASI AKTIF</span>
-        <span class="loading-card__code">SYS_EXEC</span>
+      <div class="loading-card-head">
+        <span class="loading-card-tag">OPERASI AKTIF</span>
+        <span class="loading-card-code">SYS_EXEC</span>
       </div>
-      <div class="loading-card__body">
+      <div class="loading-card-body">
         <div class="loading-spinner" aria-hidden="true"></div>
         <p class="loading-text" id="loading-text">Memproses...</p>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════ TOAST NOTIFICATIONS ══════════════ -->
+  <!-- Wadah notifikasi toast -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-  <!-- ══════════════ SYSTEM FOOTER ══════════════ -->
+  <!-- Footer sistem -->
   <footer class="footer">
-    <div class="footer__inner">
-      <div class="footer__item">
-        <span class="footer__lead">VEILUX • © 2026</span>
+    <div class="footer-inner">
+      <div class="footer-item">
+        <span class="footer-lead">VEILUX • © 2026</span>
       </div>
     </div>
   </footer>

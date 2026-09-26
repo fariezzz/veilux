@@ -20,9 +20,7 @@ def create_in_memory_image(width: int = 128, height: int = 128, format: str = "P
     return buf
 
 
-# ══════════════════════════════════════════════════════════════════
-# 1. TEST GET /api/health
-# ══════════════════════════════════════════════════════════════════
+# 1. test get /api/health
 def test_health_check_returns_200_and_expected_payload():
     """Uji bahwa GET /api/health mengembalikan HTTP 200 dan status 'ok'."""
     response = client.get("/api/health")
@@ -30,9 +28,7 @@ def test_health_check_returns_200_and_expected_payload():
     assert response.json() == {"status": "ok", "service": "veilux-backend"}
 
 
-# ══════════════════════════════════════════════════════════════════
-# 2. TEST POST /api/embed (VALID REQUEST & RESPONS FORMAT)
-# ══════════════════════════════════════════════════════════════════
+# 2. test post /api/embed (valid request & respons format)
 def test_embed_valid_png_returns_200_and_correct_format():
     """Uji bahwa POST /api/embed dengan PNG valid mengembalikan HTTP 200 dengan struktur lengkap."""
     img_buf = create_in_memory_image(width=120, height=120, format="PNG")
@@ -76,9 +72,7 @@ def test_embed_valid_jpeg_returns_200():
     assert json_resp["psnr"] > 30.0
 
 
-# ══════════════════════════════════════════════════════════════════
-# 3. TEST VALIDASI ERROR (HTTP 400 & 422)
-# ══════════════════════════════════════════════════════════════════
+# 3. test validasi error (http 400 & 422)
 def test_embed_rejects_empty_watermark():
     """Payload watermark kosong harus ditolak dengan HTTP 400."""
     img_buf = create_in_memory_image(width=80, height=80)
@@ -181,9 +175,7 @@ def test_embed_rejects_oversized_file():
     assert "Ukuran file melebihi batas 10 MB" in response.json()["detail"]
 
 
-# ══════════════════════════════════════════════════════════════════
-# 4. TEST UTILITAS image_to_data_url
-# ══════════════════════════════════════════════════════════════════
+# 4. test utilitas image_to_data_url
 def test_image_to_data_url_utility():
     """Uji fungsi utilitas konversi PIL Image ke Data URL."""
     img = Image.new("RGB", (10, 10), color=(255, 0, 0))

@@ -12,9 +12,7 @@ from backend.services.watermark import embed_watermark
 client = TestClient(app)
 
 
-# ══════════════════════════════════════════════════════════════════
-# HELPER
-# ══════════════════════════════════════════════════════════════════
+# Helper
 def _create_stego_png(
     watermark: str = "VEILUX-DETECT-TEST",
     secret_key: str = "DetectKey2026",
@@ -40,9 +38,7 @@ def _create_plain_png(width: int = 128, height: int = 128) -> io.BytesIO:
     return buf
 
 
-# ══════════════════════════════════════════════════════════════════
-# 1. DETEKSI BERHASIL — STEGO VALID
-# ══════════════════════════════════════════════════════════════════
+# 1. deteksi berhasil — stego valid
 def test_detect_valid_stego_returns_watermark_detected():
     """Citra stego valid harus mengembalikan watermark_detected=True dan teks watermark."""
     watermark = "VEILUX-DETECT-TEST"
@@ -65,9 +61,7 @@ def test_detect_valid_stego_returns_watermark_detected():
     assert json_resp["ber"] is None
 
 
-# ══════════════════════════════════════════════════════════════════
-# 2. DETEKSI DENGAN REFERENSI WATERMARK — NC & BER
-# ══════════════════════════════════════════════════════════════════
+# 2. deteksi dengan referensi watermark — nc & ber
 def test_detect_with_correct_reference_returns_perfect_nc_ber():
     """Referensi watermark yang cocok harus menghasilkan NC≈1.0 dan BER≈0.0."""
     watermark = "REFERENCE-TEST"
@@ -115,9 +109,7 @@ def test_detect_with_wrong_reference_returns_imperfect_nc_ber():
     assert json_resp["ber"] > 0.0
 
 
-# ══════════════════════════════════════════════════════════════════
-# 3. DETEKSI DENGAN SECRET KEY SALAH
-# ══════════════════════════════════════════════════════════════════
+# 3. deteksi dengan secret key salah
 def test_detect_wrong_secret_key_returns_not_detected():
     """Secret key salah harus mengembalikan watermark_detected=False tanpa error HTTP."""
     stego_buf = _create_stego_png(watermark="HELLO", secret_key="CorrectKey")
@@ -133,9 +125,7 @@ def test_detect_wrong_secret_key_returns_not_detected():
     assert json_resp["watermark"] is None
 
 
-# ══════════════════════════════════════════════════════════════════
-# 4. DETEKSI PADA CITRA POLOS (BUKAN STEGO)
-# ══════════════════════════════════════════════════════════════════
+# 4. deteksi pada citra polos (bukan stego)
 def test_detect_plain_image_returns_not_detected():
     """Citra tanpa watermark harus mengembalikan watermark_detected=False."""
     plain_buf = _create_plain_png()
@@ -153,9 +143,7 @@ def test_detect_plain_image_returns_not_detected():
     assert json_resp["tamper_map"].startswith("data:image/png;base64,")
 
 
-# ══════════════════════════════════════════════════════════════════
-# 5. DETEKSI TAMPER — MODIFIKASI PIKSEL
-# ══════════════════════════════════════════════════════════════════
+# 5. deteksi tamper — modifikasi piksel
 def test_detect_tampered_image_shows_tamper_in_map():
     """Citra stego yang dimodifikasi pikselnya harus menghasilkan tamper map dengan area merah."""
     watermark = "TAMPER-TEST"
@@ -187,9 +175,7 @@ def test_detect_tampered_image_shows_tamper_in_map():
     assert json_resp["input_image"].startswith("data:image/png;base64,")
 
 
-# ══════════════════════════════════════════════════════════════════
-# 6. VALIDASI REQUEST — ERROR 400
-# ══════════════════════════════════════════════════════════════════
+# 6. validasi request — error 400
 def test_detect_rejects_unsupported_file_type():
     """Berkas non-PNG/JPEG harus ditolak dengan HTTP 400."""
     fake_txt = io.BytesIO(b"Bukan sebuah gambar")
@@ -269,9 +255,7 @@ def test_detect_accepts_empty_original_watermark_as_absent():
     assert json_resp["ber"] is None
 
 
-# ══════════════════════════════════════════════════════════════════
-# 7. DETEKSI JPEG — FORMAT INPUT
-# ══════════════════════════════════════════════════════════════════
+# 7. deteksi jpeg — format input
 def test_detect_accepts_jpeg_input():
     """Endpoint harus menerima citra JPEG (akan menghasilkan not-detected karena JPEG lossy)."""
     watermark = "JPEG-DETECT"
