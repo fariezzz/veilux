@@ -156,7 +156,8 @@ function setupUpload(mode) {
 
   dropzone.addEventListener('drop', (e) => {
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
+    const validMimes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (file && validMimes.includes(file.type)) {
       handleFile(mode, file);
     } else {
       showToast('Format file tidak didukung. Gunakan PNG atau JPEG.', 'error');
@@ -192,6 +193,16 @@ function setupUpload(mode) {
 }
 
 function handleFile(mode, file) {
+  // Validasi tipe berkas dan ekstensi dengan ketat (Anti-Spoofing Dasar)
+  const validMimes = ['image/png', 'image/jpeg', 'image/jpg'];
+  const ext = file.name.split('.').pop().toLowerCase();
+  const validExts = ['png', 'jpg', 'jpeg'];
+  
+  if (!validMimes.includes(file.type) || !validExts.includes(ext)) {
+    showToast('Format tidak didukung atau file mencurigakan. Gunakan PNG/JPEG.', 'error');
+    return;
+  }
+
   // Validasi ukuran berkas maksimal 10 MB
   if (file.size > 10 * 1024 * 1024) {
     showToast('Ukuran file melebihi batas 10 MB.', 'error');
