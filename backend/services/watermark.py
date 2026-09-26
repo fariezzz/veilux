@@ -426,6 +426,9 @@ def detect_watermark(
     logo_width: Optional[int] = None
     logo_height: Optional[int] = None
     binary_logo: Optional[np.ndarray] = None
+    is_logo_packet = False
+    is_text_packet = False
+    ver: Optional[int] = None
 
     try:
         from backend.services.logo import (
@@ -445,6 +448,7 @@ def detect_watermark(
                 packet_bytes: Optional[bytes] = None
 
                 if ver == PROTOCOL_VERSION:
+                    is_text_packet = True
                     if len(available_channels) >= 48:
                         h_pos = get_payload_positions(available_channels, 48, secret_key)
                         h_bytes = bits_to_bytes(flat_channels[h_pos] & 1)
@@ -459,7 +463,12 @@ def detect_watermark(
                     if len(available_channels) >= header_bits_v3:
                         h_pos = get_payload_positions(available_channels, header_bits_v3, secret_key)
                         h_bytes = bits_to_bytes(flat_channels[h_pos] & 1)
-                        _, _, _, _, _, payload_len = struct.unpack(HEADER_STRUCT_V3, h_bytes[:HEADER_LEN_V3])
+                        _, _, wm_type_raw, _, _, payload_len = struct.unpack(HEADER_STRUCT_V3, h_bytes[:HEADER_LEN_V3])
+                        if wm_type_raw == int(WatermarkType.LOGO):
+                            is_logo_packet = True
+                        elif wm_type_raw == int(WatermarkType.TEXT):
+                            is_text_packet = True
+
                         total_bits = (HEADER_LEN_V3 + payload_len + HMAC_TAG_LEN) * 8
                         if total_bits <= len(available_channels):
                             pkt_pos = get_payload_positions(available_channels, total_bits, secret_key)
@@ -481,69 +490,71 @@ def detect_watermark(
     except Exception:
         pass
 
+    # 5. Evaluasi Kuantitatif NC dan BER (independen dari validasi HMAC)
     nc: Optional[float] = None
     ber: Optional[float] = None
 
-    if watermark_type == "TEXT":
-        # NC/BER untuk teks dihitung terhadap original_watermark (string)
-        if original_watermark and isinstance(original_watermark, str):
-            try:
-                ref_bits = bytes_to_bits(serialize_payload(original_watermark, secret_key))
-                if len(available_channels) >= len(ref_bits):
-                    test_positions = get_payload_positions(available_channels, len(ref_bits), secret_key)
-                    test_bits = flat_channels[test_positions] & 1
+    has_logo_ref = original_logo is not None
+    has_text_ref = bool(
+        original_watermark
+        and isinstance(original_watermark, str)
+        and original_watermark.strip()
+    )
 
-                    ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
+    if has_logo_ref and not is_text_packet and watermark_type != "TEXT":
+        try:
+            from backend.services.logo import normalize_logo
 
-                    u = 2.0 * ref_bits.astype(np.float64) - 1.0
-                    v = 2.0 * test_bits.astype(np.float64) - 1.0
-                    denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
-                    nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
-            except Exception:
-                nc = None
-                ber = None
+            ref_binary = normalize_logo(original_logo, max_size=(64, 64), threshold=128)
+            ref_bits = ref_binary.flatten()
+            M = len(ref_bits)
+            header_offset = 88  # 11 byte header Protokol V3 untuk logo
 
-    elif watermark_type == "LOGO":
-        # NC/BER untuk logo hanya dihitung terhadap original_logo (berkas/gambar logo)
-        # Jika user hanya mengisi original_watermark berupa string, abaikan (nc=None, ber=None)
-        if original_logo is not None and binary_logo is not None:
-            try:
-                from backend.services.logo import normalize_logo
+            if header_offset + M <= len(available_channels):
+                positions = get_payload_positions(available_channels, header_offset + M, secret_key)
+                content_positions = positions[header_offset : header_offset + M]
+                raw_bits = flat_channels[content_positions] & 1
 
-                ref_binary = normalize_logo(original_logo, max_size=(64, 64), threshold=128)
-                if ref_binary.shape == binary_logo.shape:
-                    ref_bits = ref_binary.flatten()
-                    test_bits = binary_logo.flatten()
+                ber = float(np.sum(raw_bits != ref_bits) / M)
+                u = 2.0 * ref_bits.astype(np.float64) - 1.0
+                v = 2.0 * raw_bits.astype(np.float64) - 1.0
+                denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
+                nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
+        except Exception:
+            nc = None
+            ber = None
 
-                    ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
+    elif has_text_ref and not is_logo_packet and watermark_type != "LOGO":
+        try:
+            assert original_watermark is not None
+            ref_bits = bytes_to_bits(original_watermark.strip().encode("utf-8"))
+            K = len(ref_bits)
 
-                    u = 2.0 * ref_bits.astype(np.float64) - 1.0
-                    v = 2.0 * test_bits.astype(np.float64) - 1.0
-                    denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
-                    nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
-            except Exception:
-                nc = None
-                ber = None
+            # Tentukan offset header (V3 text: 88 bit / 11 byte; V2 text: 48 bit / 6 byte)
+            from backend.services.logo import PROTOCOL_VERSION_V3
 
-    else:
-        # Kasus watermark tidak terdeteksi (misal karena serangan atau secret key salah)
-        # Untuk TEXT: jika original_watermark (string) disediakan dan bukan logo, tetap ukur bit degradasi
-        if original_watermark and isinstance(original_watermark, str) and original_logo is None:
-            try:
-                ref_bits = bytes_to_bits(serialize_payload(original_watermark, secret_key))
-                if len(available_channels) >= len(ref_bits):
-                    test_positions = get_payload_positions(available_channels, len(ref_bits), secret_key)
-                    test_bits = flat_channels[test_positions] & 1
+            header_offset = 48
+            if is_text_packet and ver == PROTOCOL_VERSION_V3:
+                header_offset = 88
+            elif len(available_channels) >= 32:
+                ver_pos = get_payload_positions(available_channels, 32, secret_key)
+                ver_bytes = bits_to_bytes(flat_channels[ver_pos] & 1)
+                if ver_bytes[:3] == MAGIC_MARKER and ver_bytes[3] == PROTOCOL_VERSION_V3:
+                    header_offset = 88
 
-                    ber = float(np.sum(test_bits != ref_bits) / len(ref_bits))
+            if header_offset + K <= len(available_channels):
+                positions = get_payload_positions(available_channels, header_offset + K, secret_key)
+                content_positions = positions[header_offset : header_offset + K]
+                raw_bits = flat_channels[content_positions] & 1
 
-                    u = 2.0 * ref_bits.astype(np.float64) - 1.0
-                    v = 2.0 * test_bits.astype(np.float64) - 1.0
-                    denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
-                    nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
-            except Exception:
-                nc = None
-                ber = None
+                ber = float(np.sum(raw_bits != ref_bits) / K)
+                u = 2.0 * ref_bits.astype(np.float64) - 1.0
+                v = 2.0 * raw_bits.astype(np.float64) - 1.0
+                denom = np.sqrt(np.sum(u ** 2) * np.sum(v ** 2))
+                nc = float(np.sum(u * v) / denom) if denom > 0 else 0.0
+        except Exception:
+            nc = None
+            ber = None
 
     return {
         "watermark_detected": watermark_detected,

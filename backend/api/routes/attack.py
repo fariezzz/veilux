@@ -156,6 +156,11 @@ async def attack_endpoint(
 
     if rgb_before.size != rgb_after.size:
         # Pada serangan yang mengubah dimensi citra (seperti crop):
+        # Terjadi desinkronisasi spasial koordinat LSB karena geometri citra berubah.
+        # Secara teori watermarking spasial, NC dan BER tidak dapat dipetakan tanpa registrasi spasial.
+        detect_result["nc"] = None
+        detect_result["ber"] = None
+
         # Evaluasi MSE dan PSNR dihitung terhadap kanvas berukuran citra asli
         eval_after = Image.new("RGB", rgb_before.size, (0, 0, 0))
         eval_after.paste(rgb_after, (0, 0))

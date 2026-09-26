@@ -384,6 +384,80 @@ def test_detect_watermark_reference_watermark_correct_ber_nc(synthetic_image):
     assert math.isclose(detect_res["nc"], 1.0, rel_tol=1e-5)
 
 
+def test_detect_watermark_text_identical_ryza_reference(synthetic_image):
+    """Pengujian TEXT identik 'RYZA': BER harus 0.0 dan NC harus 1.0."""
+    secret_key = "RyzaSecretKey"
+    watermark = "RYZA"
+
+    embed_res = embed_watermark(synthetic_image, watermark, secret_key)
+    stego_image = embed_res["stego_image"]
+
+    detect_res = detect_watermark(stego_image, secret_key, original_watermark=watermark)
+
+    assert detect_res["watermark_detected"] is True
+    assert detect_res["watermark"] == "RYZA"
+    assert detect_res["ber"] == 0.0
+    assert detect_res["nc"] == 1.0
+
+
+def test_detect_watermark_text_different_measures_content_bits_not_packet(synthetic_image):
+    """
+    Pengujian TEXT berbeda: 'RYZA' vs 'RYZB'.
+    Hanya mengukur bit konten UTF-8 (bukan header atau HMAC).
+    'A' (0x41 = 0b01000001) vs 'B' (0x42 = 0b01000010) berbeda tepat 2 bit dari 32 bit total (4 char).
+    BER harus tepat 2 / 32 = 0.0625.
+    """
+    secret_key = "ContentBitsKey"
+    watermark = "RYZA"
+
+    embed_res = embed_watermark(synthetic_image, watermark, secret_key)
+    stego_image = embed_res["stego_image"]
+
+    detect_res = detect_watermark(stego_image, secret_key, original_watermark="RYZB")
+
+    assert detect_res["watermark_detected"] is True
+    assert detect_res["ber"] == pytest.approx(2 / 32, abs=1e-6)
+    assert detect_res["nc"] is not None and detect_res["nc"] < 1.0
+
+
+def test_detect_watermark_text_with_only_logo_reference_returns_none(synthetic_image):
+    """Citra ber-watermark TEXT jika hanya diberi referensi original_logo harus menghasilkan NC=None, BER=None."""
+    secret_key = "TextWithLogoRefKey"
+    watermark = "RYZA-TEXT"
+
+    embed_res = embed_watermark(synthetic_image, watermark, secret_key)
+    stego_image = embed_res["stego_image"]
+
+    dummy_logo = Image.new("L", (16, 16), color=128)
+    detect_res = detect_watermark(stego_image, secret_key, original_watermark=None, original_logo=dummy_logo)
+
+    assert detect_res["watermark_detected"] is True
+    assert detect_res["watermark_type"] == "TEXT"
+    assert detect_res["nc"] is None
+    assert detect_res["ber"] is None
+
+
+def test_detect_watermark_logo_with_only_text_reference_returns_none(synthetic_image):
+    """Citra ber-watermark LOGO jika hanya diberi referensi original_watermark string harus menghasilkan NC=None, BER=None."""
+    from backend.services.logo import normalize_logo, pack_binary_logo, serialize_logo_payload
+
+    secret_key = "LogoWithTextRefKey"
+    raw_logo = Image.new("L", (16, 16), color=255)
+    bin_logo = normalize_logo(raw_logo, max_size=(64, 64))
+    packed, lw, lh = pack_binary_logo(bin_logo)
+    packet = serialize_logo_payload(packed, secret_key=secret_key, width=lw, height=lh)
+
+    embed_res = embed_watermark(synthetic_image, watermark=packet, secret_key=secret_key)
+    stego_image = embed_res["stego_image"]
+
+    detect_res = detect_watermark(stego_image, secret_key, original_watermark="RYZA-STRING", original_logo=None)
+
+    assert detect_res["watermark_detected"] is True
+    assert detect_res["watermark_type"] == "LOGO"
+    assert detect_res["nc"] is None
+    assert detect_res["ber"] is None
+
+
 def test_detect_watermark_reference_watermark_wrong_ber_nc(synthetic_image):
     """Watermark referensi salah menghasilkan BER > 0 dan NC < 1."""
     secret_key = "NCBERKey2026"
@@ -461,3 +535,104 @@ def test_metrics_on_watermarked_image(synthetic_image):
     assert mse > 0.0
     assert mse < 0.1
     assert psnr > 50.0
+
+
+# 7. Pengujian Pemisahan Jalur HMAC vs NC/BER (Independensi Evaluasi)
+def test_untouched_text_watermark_hmac_valid_and_perfect_nc_ber(synthetic_image):
+    """Untouched TEXT: HMAC valid, NC = 1.0, BER = 0.0."""
+    secret_key = "TextValidKey2026"
+    watermark = "VEILUX-UNTOUCHED-TEXT"
+
+    embed_res = embed_watermark(synthetic_image, watermark, secret_key)
+    stego_image = embed_res["stego_image"]
+
+    detect_res = detect_watermark(stego_image, secret_key, original_watermark=watermark)
+
+    assert detect_res["watermark_detected"] is True
+    assert detect_res["watermark_type"] == "TEXT"
+    assert detect_res["watermark"] == watermark
+    assert detect_res["nc"] == 1.0
+    assert detect_res["ber"] == 0.0
+    assert detect_res["tamper_ratio"] == 0.0
+
+
+def test_untouched_logo_watermark_hmac_valid_and_perfect_nc_ber(synthetic_image):
+    """Untouched LOGO: HMAC valid, NC = 1.0, BER = 0.0."""
+    from backend.services.logo import normalize_logo, pack_binary_logo, serialize_logo_payload
+
+    secret_key = "LogoValidKey2026"
+    raw_logo = Image.new("L", (24, 24), color=0)
+    for y in range(8, 16):
+        for x in range(8, 16):
+            raw_logo.putpixel((x, y), 255)
+
+    bin_logo = normalize_logo(raw_logo, max_size=(64, 64))
+    packed, lw, lh = pack_binary_logo(bin_logo)
+    packet = serialize_logo_payload(packed, secret_key=secret_key, width=lw, height=lh)
+
+    embed_res = embed_watermark(synthetic_image, watermark=packet, secret_key=secret_key)
+    stego_image = embed_res["stego_image"]
+
+    detect_res = detect_watermark(stego_image, secret_key, original_logo=raw_logo)
+
+    assert detect_res["watermark_detected"] is True
+    assert detect_res["watermark_type"] == "LOGO"
+    assert detect_res["nc"] == 1.0
+    assert detect_res["ber"] == 0.0
+    assert detect_res["tamper_ratio"] == 0.0
+
+
+def test_tampered_image_with_unmodified_watermark_bits_has_numeric_nc_ber(synthetic_image):
+    """Ketika citra dimanipulasi sehingga HMAC/integritas gagal tetapi bit watermark tidak terkena:
+
+    HMAC = INVALID, NC = 1.0, BER = 0.0.
+    """
+    secret_key = "TamperedUntouchedBitsKey"
+    watermark = "AUTHENTIC-PAYLOAD-OK"
+
+    embed_res = embed_watermark(synthetic_image, watermark, secret_key)
+    stego_image = embed_res["stego_image"]
+
+    # Manipulasi citra: ubah nilai pixel MSB/bit non-LSB pada blok (0, 0)
+    # Ini mengubah HMAC blok 0 sehingga tamper terdeteksi, tetapi tidak merusak LSB payload
+    stego_arr = np.array(stego_image)
+    stego_arr[0, 0, 0] ^= 0b00000010  # balik bit ke-2 (bukan LSB)
+    tampered_image = Image.fromarray(stego_arr)
+
+    detect_res = detect_watermark(tampered_image, secret_key, original_watermark=watermark)
+
+    # Integritas blok terdeteksi rusak (tamper map menandai blok)
+    assert detect_res["tamper_ratio"] > 0.0
+    # Karena bit watermark tidak berubah, NC dan BER tetap numeric dan sempurna
+    assert detect_res["nc"] == 1.0
+    assert detect_res["ber"] == 0.0
+
+
+def test_corrupted_watermark_bit_invalidates_hmac_and_yields_numeric_degraded_nc_ber(synthetic_image):
+    """Ketika bit LSB pada posisi watermark sengaja dibalik:
+
+    HMAC = INVALID, NC < 1.0, BER > 0.0 (tetap dihitung dari raw LSB).
+    """
+    secret_key = "CorruptedBitKey2026"
+    watermark = "TEST-CORRUPT-BIT"
+
+    embed_res = embed_watermark(synthetic_image, watermark, secret_key)
+    stego_image = embed_res["stego_image"]
+
+    # Posisi bit payload konten
+    # Offset 48 adalah bit pertama payload content (setelah 6 byte header V2)
+    first_content_channel_idx = embed_res["positions"][48]
+
+    stego_arr = np.array(stego_image)
+    flat = stego_arr.flatten()
+    flat[first_content_channel_idx] ^= 1  # Sengaja membalik 1 bit LSB watermark
+    corrupted_image = Image.fromarray(flat.reshape(stego_arr.shape))
+
+    detect_res = detect_watermark(corrupted_image, secret_key, original_watermark=watermark)
+
+    # HMAC paket invalid karena 1 bit berubah
+    assert detect_res["watermark_detected"] is False
+    # NC dan BER tetap terhitung dari raw LSB vs referensi
+    assert detect_res["ber"] is not None and detect_res["ber"] > 0.0
+    assert detect_res["nc"] is not None and detect_res["nc"] < 1.0
+

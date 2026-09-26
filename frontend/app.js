@@ -444,6 +444,9 @@ function validateForm(mode) {
     const btn = document.getElementById('btn-attack');
     if (btn) btn.disabled = !isValid;
 
+    const btnBench = document.getElementById('btn-benchmark-all');
+    if (btnBench) btnBench.disabled = !(hasFile && hasKey);
+
     const missing = [];
     if (!hasFile) missing.push('citra ber-watermark');
     if (!hasKey) missing.push('secret key');
@@ -580,9 +583,29 @@ if (btnEmbed) {
       const data = await apiCall('/embed', formData);
 
       document.getElementById('result-original').src = data.original_image;
-      document.getElementById('result-watermarked').src = data.watermarked_image;
+      const imgWatermarked = document.getElementById('result-watermarked');
+      imgWatermarked.src = data.watermarked_image;
+      imgWatermarked.style.cursor = 'zoom-in';
+      imgWatermarked.title = 'Klik untuk membuka citra di tab baru';
+      imgWatermarked.onclick = () => openImageInNewTab(data.watermarked_image);
       document.getElementById('metric-psnr').textContent = data.psnr.toFixed(2);
       document.getElementById('metric-mse').textContent = data.mse.toFixed(5);
+
+      // Perbarui keterangan dinamis sesuai nilai metrik
+      const hintPsnr = document.getElementById('hint-metric-psnr');
+      if (hintPsnr) {
+        hintPsnr.textContent = data.psnr >= 40
+          ? `Kualitas imperceptible sangat tinggi (${data.psnr.toFixed(2)} dB >= 40 dB)`
+          : (data.psnr >= 30
+            ? `Kualitas baik (${data.psnr.toFixed(2)} dB >= 30 dB)`
+            : `Kualitas di bawah standar (${data.psnr.toFixed(2)} dB < 30 dB)`);
+      }
+      const hintMse = document.getElementById('hint-metric-mse');
+      if (hintMse) {
+        hintMse.textContent = data.mse < 0.1
+          ? `Distorsi sangat minimal (${data.mse.toFixed(5)} < 0.1)`
+          : `Distorsi terdeteksi (${data.mse.toFixed(5)})`;
+      }
 
       document.getElementById('result-embed').hidden = false;
 
@@ -625,7 +648,10 @@ if (btnDetect) {
       const data = await apiCall('/detect', formData);
 
       const statusEl = document.getElementById('detect-status');
-      const statusTextEl = statusEl.querySelector('.detect-status-text');
+      const statusTitleEl = document.getElementById('detect-status-title');
+      const statusDescEl = document.getElementById('detect-status-desc');
+      const badgeIntegrity = document.getElementById('badge-detect-integrity');
+      const badgeWatermark = document.getElementById('badge-detect-watermark');
       const wmTextEl = document.getElementById('detected-watermark-text');
       const logoWrap = document.getElementById('detected-logo-wrap');
       const logoImg = document.getElementById('detected-logo-img');
@@ -634,7 +660,17 @@ if (btnDetect) {
       if (data.watermark_detected) {
         statusEl.classList.remove('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✓';
-        statusTextEl.textContent = 'Watermark Terdeteksi & Terverifikasi';
+
+        if (badgeIntegrity) {
+          badgeIntegrity.className = 'status-badge status-badge-ok';
+          badgeIntegrity.textContent = 'HMAC: VALID';
+        }
+        if (badgeWatermark) {
+          badgeWatermark.className = 'status-badge status-badge-ok';
+          badgeWatermark.textContent = 'WATERMARK: UTUH';
+        }
+        if (statusTitleEl) statusTitleEl.textContent = 'Watermark Terdeteksi & Integritas Autentik';
+        if (statusDescEl) statusDescEl.textContent = 'Tag HMAC blok cocok sempurna, payload terekstrak tanpa manipulasi.';
 
         if (data.watermark_type === 'LOGO' && data.logo_image) {
           if (wmTextEl) wmTextEl.style.display = 'none';
@@ -651,7 +687,26 @@ if (btnDetect) {
       } else {
         statusEl.classList.add('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✗';
-        statusTextEl.textContent = 'Watermark Tidak Terdeteksi / Integritas Rusak';
+
+        if (badgeIntegrity) {
+          badgeIntegrity.className = 'status-badge status-badge-fail';
+          badgeIntegrity.textContent = 'HMAC: TIDAK VALID';
+        }
+        if (badgeWatermark) {
+          badgeWatermark.className = data.nc !== null && data.nc > 0
+            ? 'status-badge status-badge-warn'
+            : 'status-badge status-badge-fail';
+          badgeWatermark.textContent = data.nc !== null && data.nc > 0
+            ? 'WATERMARK: RUSAK / TERDEGRADASI'
+            : 'WATERMARK: TIDAK DITEMUKAN';
+        }
+        if (statusTitleEl) statusTitleEl.textContent = 'Integritas Rusak atau Secret Key Salah';
+        if (statusDescEl) {
+          statusDescEl.textContent = data.nc !== null
+            ? 'Otentikasi HMAC gagal. Metrik NC & BER dihitung dari pembandingan bit LSB spasial terhadap referensi.'
+            : 'Verifikasi HMAC gagal dan tidak ada referensi pembanding untuk membaca korelasi LSB.';
+        }
+
         if (wmTextEl) {
           wmTextEl.style.display = 'block';
           wmTextEl.textContent = '';
@@ -660,12 +715,43 @@ if (btnDetect) {
       }
 
       document.getElementById('detect-input-img').src = data.input_image;
-      document.getElementById('detect-tamper-map').src = data.tamper_map;
+      const imgDetectTamper = document.getElementById('detect-tamper-map');
+      imgDetectTamper.src = data.tamper_map;
+      imgDetectTamper.style.cursor = 'zoom-in';
+      imgDetectTamper.title = 'Klik untuk membuka citra di tab baru';
+      imgDetectTamper.onclick = () => openImageInNewTab(data.tamper_map);
 
       document.getElementById('metric-nc').textContent =
         data.nc !== null ? data.nc.toFixed(4) : '--';
       document.getElementById('metric-ber').textContent =
         data.ber !== null ? data.ber.toFixed(4) : '--';
+
+      // Perbarui keterangan dinamis pada metric card hint (detect)
+      const hintNc = document.getElementById('hint-metric-nc');
+      if (hintNc) {
+        if (data.nc === null) {
+          hintNc.textContent = 'Memerlukan watermark/logo referensi asli untuk evaluasi NC';
+        } else if (data.nc >= 0.99) {
+          hintNc.textContent = `Watermark identik sempurna (NC: ${data.nc.toFixed(4)} ≈ 1.0000)`;
+        } else if (data.nc >= 0.8) {
+          hintNc.textContent = `Korelasi tinggi di atas ambang batas (NC: ${data.nc.toFixed(4)} >= 0.8000)`;
+        } else {
+          hintNc.textContent = `Degradasi korelasi terdeteksi (NC: ${data.nc.toFixed(4)} < 0.8000)`;
+        }
+      }
+
+      const hintBer = document.getElementById('hint-metric-ber');
+      if (hintBer) {
+        if (data.ber === null) {
+          hintBer.textContent = 'Memerlukan watermark/logo referensi asli untuk evaluasi BER';
+        } else if (data.ber === 0) {
+          hintBer.textContent = 'Bebas galat: 0.0000 (seluruh bit cocok 100%)';
+        } else if (data.ber <= 0.15) {
+          hintBer.textContent = `Galat rendah dalam batas toleransi (BER: ${(data.ber * 100).toFixed(2)}%)`;
+        } else {
+          hintBer.textContent = `Galat bit tinggi melebihi ambang batas kritis (BER: ${(data.ber * 100).toFixed(2)}%)`;
+        }
+      }
 
       // Tampilkan statistik integritas blok
       const validBlocksEl = document.getElementById('detect-valid-blocks');
@@ -674,6 +760,20 @@ if (btnDetect) {
       if (validBlocksEl) validBlocksEl.textContent = data.valid_blocks;
       if (totalBlocksEl) totalBlocksEl.textContent = data.total_blocks;
       if (tamperRatioEl) tamperRatioEl.textContent = (data.tamper_ratio * 100).toFixed(1) + '%';
+
+      const hintValidBlocks = document.getElementById('hint-detect-valid-blocks');
+      if (hintValidBlocks) {
+        hintValidBlocks.textContent = data.valid_blocks === data.total_blocks
+          ? `Seluruh blok (${data.valid_blocks}/${data.total_blocks}) utuh & terverifikasi HMAC`
+          : `${data.total_blocks - data.valid_blocks} dari ${data.total_blocks} blok terindikasi rusak/termodifikasi`;
+      }
+
+      const hintTamperRatio = document.getElementById('hint-detect-tamper-ratio');
+      if (hintTamperRatio) {
+        hintTamperRatio.textContent = data.tamper_ratio === 0
+          ? 'Integritas 100% utuh tanpa manipulasi'
+          : `Area termodifikasi: ${(data.tamper_ratio * 100).toFixed(1)}% dari total citra`;
+      }
 
       // Tombol unduh hasil tamper map
       const btnDownloadTamperMap = document.getElementById('btn-download-tamper-map');
@@ -733,8 +833,17 @@ if (btnAttack) {
         `SERANGAN: ${attackNames[state.attack.selectedAttack].toUpperCase()}`;
 
       document.getElementById('attack-before').src = data.before_image;
-      document.getElementById('attack-after').src = data.after_image;
-      document.getElementById('attack-tamper').src = data.tamper_map;
+      const imgAttackAfter = document.getElementById('attack-after');
+      imgAttackAfter.src = data.after_image;
+      imgAttackAfter.style.cursor = 'zoom-in';
+      imgAttackAfter.title = 'Klik untuk membuka citra di tab baru';
+      imgAttackAfter.onclick = () => openImageInNewTab(data.after_image);
+
+      const imgAttackTamper = document.getElementById('attack-tamper');
+      imgAttackTamper.src = data.tamper_map;
+      imgAttackTamper.style.cursor = 'zoom-in';
+      imgAttackTamper.title = 'Klik untuk membuka citra di tab baru';
+      imgAttackTamper.onclick = () => openImageInNewTab(data.tamper_map);
 
       document.getElementById('attack-psnr').textContent = data.psnr.toFixed(2);
       document.getElementById('attack-mse').textContent = data.mse.toFixed(5);
@@ -751,8 +860,68 @@ if (btnAttack) {
       document.getElementById('attack-ber').textContent =
         data.ber !== null ? data.ber.toFixed(4) : '--';
 
+      // Perbarui keterangan dinamis pada metric card hint (attack)
+      const hintAttPsnr = document.getElementById('hint-attack-psnr');
+      if (hintAttPsnr) {
+        hintAttPsnr.textContent = data.psnr >= 35
+          ? `Distorsi visual rendah (${data.psnr.toFixed(2)} dB)`
+          : (data.psnr >= 25
+            ? `Distorsi visual sedang (${data.psnr.toFixed(2)} dB)`
+            : `Distorsi visual berat (${data.psnr.toFixed(2)} dB)`);
+      }
+
+      const hintAttMse = document.getElementById('hint-attack-mse');
+      if (hintAttMse) {
+        hintAttMse.textContent = `Deviasi kuadratik piksel rata-rata: ${data.mse.toFixed(4)}`;
+      }
+
+      const hintAttNc = document.getElementById('hint-attack-nc');
+      if (hintAttNc) {
+        if (state.attack.selectedAttack === 'crop') {
+          hintAttNc.textContent = 'Desinkronisasi spasial: dimensi berubah akibat cropping, NC tidak valid';
+        } else if (data.nc === null) {
+          hintAttNc.textContent = 'Tidak ada watermark referensi untuk mengukur korelasi';
+        } else if (data.nc >= 0.99) {
+          hintAttNc.textContent = `Watermark bertahan sempurna pasca-serangan (NC: ${data.nc.toFixed(4)})`;
+        } else if (data.nc >= 0.7) {
+          hintAttNc.textContent = `Korelasi watermark bertahan moderat (NC: ${data.nc.toFixed(4)})`;
+        } else {
+          hintAttNc.textContent = `Korelasi rusak parah akibat serangan (NC: ${data.nc.toFixed(4)})`;
+        }
+      }
+
+      const hintAttBer = document.getElementById('hint-attack-ber');
+      if (hintAttBer) {
+        if (state.attack.selectedAttack === 'crop') {
+          hintAttBer.textContent = 'Desinkronisasi spasial: koordinat LSB terpotong, BER tidak valid';
+        } else if (data.ber === null) {
+          hintAttBer.textContent = 'Tidak ada watermark referensi untuk mengukur bit error';
+        } else if (data.ber === 0) {
+          hintAttBer.textContent = '0% bit berubah (seluruh bit watermark utuh)';
+        } else {
+          hintAttBer.textContent = `${(data.ber * 100).toFixed(2)}% bit LSB rusak akibat manipulasi`;
+        }
+      }
+
+      const hintAttValidBlocks = document.getElementById('hint-attack-valid-blocks');
+      if (hintAttValidBlocks) {
+        hintAttValidBlocks.textContent = data.valid_blocks === data.total_blocks
+          ? `Seluruh blok (${data.valid_blocks}/${data.total_blocks}) bertahan dari serangan`
+          : `${data.total_blocks - data.valid_blocks} dari ${data.total_blocks} blok rusak akibat serangan`;
+      }
+
+      const hintAttTamperRatio = document.getElementById('hint-attack-tamper-ratio');
+      if (hintAttTamperRatio) {
+        hintAttTamperRatio.textContent = data.tamper_ratio === 0
+          ? 'Kerusakan 0.0% (struktur blok utuh)'
+          : `${(data.tamper_ratio * 100).toFixed(1)}% blok citra terindikasi rusak`;
+      }
+
       const statusEl = document.getElementById('attack-detect-status');
       const statusTextEl = document.getElementById('attack-detect-text');
+      const statusDescEl = document.getElementById('attack-detect-desc');
+      const badgeIntegrity = document.getElementById('badge-attack-integrity');
+      const badgeWatermark = document.getElementById('badge-attack-watermark');
       const wmEl = document.getElementById('attack-detected-watermark');
       const attackLogoWrap = document.getElementById('attack-detected-logo-wrap');
       const attackLogoImg = document.getElementById('attack-detected-logo-img');
@@ -761,7 +930,17 @@ if (btnAttack) {
       if (data.watermark_detected) {
         statusEl.classList.remove('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✓';
-        statusTextEl.textContent = 'Watermark Masih Terdeteksi (Toleransi Parsial)';
+
+        if (badgeIntegrity) {
+          badgeIntegrity.className = 'status-badge status-badge-ok';
+          badgeIntegrity.textContent = 'HMAC: VALID';
+        }
+        if (badgeWatermark) {
+          badgeWatermark.className = 'status-badge status-badge-ok';
+          badgeWatermark.textContent = 'WATERMARK: UTUH';
+        }
+        if (statusTextEl) statusTextEl.textContent = 'Watermark Masih Utuh / Bertahan';
+        if (statusDescEl) statusDescEl.textContent = 'Otentikasi HMAC lolos verifikasi pasca-manipulasi.';
 
         if (data.watermark_type === 'LOGO' && data.logo_image) {
           if (wmEl) wmEl.style.display = 'none';
@@ -778,7 +957,36 @@ if (btnAttack) {
       } else {
         statusEl.classList.add('detect-status-fail');
         statusEl.querySelector('.detect-status-icon').textContent = '✗';
-        statusTextEl.textContent = 'Watermark Rusak / Pola LSB Hilang (Fragile)';
+
+        if (badgeIntegrity) {
+          badgeIntegrity.className = 'status-badge status-badge-fail';
+          badgeIntegrity.textContent = 'HMAC: RUSAK';
+        }
+        if (badgeWatermark) {
+          if (state.attack.selectedAttack === 'crop') {
+            badgeWatermark.className = 'status-badge status-badge-fail';
+            badgeWatermark.textContent = 'WATERMARK: DESINKRONISASI';
+          } else {
+            badgeWatermark.className = data.nc !== null && data.nc > 0
+              ? 'status-badge status-badge-warn'
+              : 'status-badge status-badge-fail';
+            badgeWatermark.textContent = data.nc !== null && data.nc > 0
+              ? 'WATERMARK: TERDEGRADASI'
+              : 'WATERMARK: HILANG (FRAGILE)';
+          }
+        }
+
+        if (statusTextEl) statusTextEl.textContent = 'Integritas Rusak Akibat Serangan (Fragile LSB)';
+        if (statusDescEl) {
+          if (state.attack.selectedAttack === 'crop') {
+            statusDescEl.textContent = 'Pemotongan geometri memutus koordinat spasial LSB, memicu kegagalan HMAC total.';
+          } else {
+            statusDescEl.textContent = data.nc !== null
+              ? 'Otentikasi HMAC gagal. Metrik NC & BER dihitung dari pembandingan bit LSB spasial terhadap referensi.'
+              : 'Otentikasi HMAC gagal. Pola bit LSB terdistorsi oleh serangan manipulasi.';
+          }
+        }
+
         if (wmEl) {
           wmEl.style.display = 'block';
           wmEl.textContent = '';
@@ -808,6 +1016,166 @@ if (btnAttack) {
     } finally {
       hideLoading();
     }
+  });
+}
+
+// Data cache benchmark seluruh serangan
+let currentBenchmarkResults = [];
+
+// Alur kerja benchmark semua 8 jenis serangan
+const btnBenchmarkAll = document.getElementById('btn-benchmark-all');
+if (btnBenchmarkAll) {
+  btnBenchmarkAll.addEventListener('click', async () => {
+    const file = state.attack.file;
+    const secretKey = document.getElementById('secret-key-attack').value.trim();
+
+    if (!file || !secretKey) {
+      showToast('Pilih citra ber-watermark dan masukkan secret key terlebih dahulu.', 'error');
+      return;
+    }
+
+    const attacks = [
+      { key: 'jpeg_90', name: 'JPEG Q90', category: 'Lossy Compression' },
+      { key: 'jpeg_70', name: 'JPEG Q70', category: 'Lossy Compression' },
+      { key: 'jpeg_50', name: 'JPEG Q50', category: 'Lossy Compression' },
+      { key: 'noise', name: 'Gaussian Noise', category: 'Additive Noise' },
+      { key: 'brightness', name: 'Brightness Shift', category: 'Luminance Adjustment' },
+      { key: 'contrast', name: 'Contrast Adjustment', category: 'Dynamic Range' },
+      { key: 'resize', name: 'Resize (50% scale)', category: 'Resampling Scale' },
+      { key: 'crop', name: 'Cropping (15% corner)', category: 'Geometric Cropping' },
+    ];
+
+    currentBenchmarkResults = [];
+    const tbody = document.getElementById('benchmark-table-body');
+    if (tbody) tbody.innerHTML = '';
+    const section = document.getElementById('benchmark-section');
+    if (section) section.hidden = false;
+
+    showLoading('Memulai pengujian 8 serangan (1/8)...');
+
+    try {
+      for (let i = 0; i < attacks.length; i++) {
+        const atk = attacks[i];
+        showLoading(`Menguji serangan ${i + 1}/8: ${atk.name}...`);
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('secret_key', secretKey);
+        formData.append('attack_type', atk.key);
+
+        if (state.attack.refType === 'logo') {
+          if (state['ref-logo-attack'] && state['ref-logo-attack'].file) {
+            formData.append('original_logo', state['ref-logo-attack'].file);
+          }
+        } else {
+          const origWm = document.getElementById('original-watermark-attack').value.trim();
+          if (origWm) {
+            formData.append('original_watermark', origWm);
+          }
+        }
+
+        const data = await apiCall('/attack', formData);
+
+        const row = {
+          no: i + 1,
+          name: atk.name,
+          category: atk.category,
+          psnr: data.psnr.toFixed(2),
+          mse: data.mse.toFixed(4),
+          nc: data.nc !== null ? data.nc.toFixed(4) : (atk.key === 'crop' ? 'N/A (Crop)' : '--'),
+          ber: data.ber !== null ? data.ber.toFixed(4) : (atk.key === 'crop' ? 'N/A (Crop)' : '--'),
+          detected: data.watermark_detected,
+          validBlocks: `${data.valid_blocks}/${data.total_blocks}`,
+          tamperRatio: `${(data.tamper_ratio * 100).toFixed(1)}%`,
+        };
+        currentBenchmarkResults.push(row);
+
+        if (tbody) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${row.no}</td>
+            <td>${row.name}</td>
+            <td>${row.category}</td>
+            <td>${row.psnr}</td>
+            <td>${row.mse}</td>
+            <td>${row.nc}</td>
+            <td>${row.ber}</td>
+            <td><span class="${row.detected ? 'benchmark-badge-ok' : 'benchmark-badge-fail'}">${row.detected ? 'Terdeteksi' : 'Rusak'}</span></td>
+            <td>${row.validBlocks}</td>
+            <td>${row.tamperRatio}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      document.getElementById('result-attack').hidden = false;
+      section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      showToast('Seluruh 8 pengujian serangan selesai.', 'success');
+    } catch (err) {
+      showToast(`Gagal saat benchmark: ${err.message}`, 'error');
+    } finally {
+      hideLoading();
+    }
+  });
+}
+
+// Tombol salin hasil benchmark ke format Markdown
+const btnCopyBenchmarkMd = document.getElementById('btn-copy-benchmark-md');
+if (btnCopyBenchmarkMd) {
+  btnCopyBenchmarkMd.addEventListener('click', async () => {
+    if (!currentBenchmarkResults.length) {
+      showToast('Belum ada data benchmark untuk disalin.', 'info');
+      return;
+    }
+
+    let md = '| No | Jenis Serangan | Kategori | PSNR (dB) | MSE | NC | BER | Status Watermark | Blok Valid | Tamper Ratio |\n';
+    md += '|---|---|---|---|---|---|---|---|---|---|\n';
+    currentBenchmarkResults.forEach((r) => {
+      const statusText = r.detected ? 'Terdeteksi' : 'Rusak (Fragile)';
+      md += `| ${r.no} | ${r.name} | ${r.category} | ${r.psnr} | ${r.mse} | ${r.nc} | ${r.ber} | ${statusText} | ${r.validBlocks} | ${r.tamperRatio} |\n`;
+    });
+
+    try {
+      await navigator.clipboard.writeText(md);
+      showToast('Tabel Markdown berhasil disalin ke clipboard!', 'success');
+    } catch (err) {
+      // Fallback salin via textarea jika clipboard API diblokir
+      const ta = document.createElement('textarea');
+      ta.value = md;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Tabel Markdown berhasil disalin ke clipboard!', 'success');
+    }
+  });
+}
+
+// Tombol unduh hasil benchmark format CSV
+const btnDownloadBenchmarkCsv = document.getElementById('btn-download-benchmark-csv');
+if (btnDownloadBenchmarkCsv) {
+  btnDownloadBenchmarkCsv.addEventListener('click', () => {
+    if (!currentBenchmarkResults.length) {
+      showToast('Belum ada data benchmark untuk diunduh.', 'info');
+      return;
+    }
+
+    let csv = 'No,Jenis Serangan,Kategori,PSNR (dB),MSE,NC,BER,Status Watermark,Blok Valid,Tamper Ratio\n';
+    currentBenchmarkResults.forEach((r) => {
+      const statusText = r.detected ? 'Terdeteksi' : 'Rusak';
+      csv += `${r.no},"${r.name}","${r.category}",${r.psnr},${r.mse},${r.nc},${r.ber},"${statusText}","${r.validBlocks}","${r.tamperRatio}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `veilux-benchmark-serangan-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Berkas CSV benchmark berhasil diunduh.', 'success');
   });
 }
 
@@ -850,12 +1218,59 @@ function showToast(message, type = 'info') {
 }
 
 function downloadBase64(dataUrl, filename) {
-  const a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  try {
+    // Konversi Data URL menjadi binary Blob agar pengunduhan hemat memori dan instan
+    const parts = dataUrl.split(',');
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  } catch (e) {
+    // Fallback direct href jika decoding gagal
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
+// Utilitas untuk membuka citra hasil di tab baru secara aman menggunakan Blob URL
+function openImageInNewTab(dataUrl) {
+  try {
+    const parts = dataUrl.split(',');
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+  } catch (e) {
+    const win = window.open();
+    if (win) {
+      win.document.write(`<iframe src="${dataUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+    }
+  }
 }
 
 // Inisialisasi tema dan tipe watermark saat aplikasi pertama kali dimuat
