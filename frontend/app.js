@@ -177,6 +177,15 @@ function setupUpload(mode) {
       fileInput.value = '';
       previewWrap.hidden = true;
       dropzone.hidden = false;
+      
+      // Sembunyikan panel hasil sebelumnya agar tidak misleading
+      let parentMode = mode;
+      if (mode === 'logo') parentMode = 'embed';
+      else if (mode.startsWith('ref-logo-')) parentMode = mode.replace('ref-logo-', '');
+      
+      const resultPanel = document.getElementById(`result-${parentMode}`);
+      if (resultPanel) resultPanel.hidden = true;
+
       validateForm(mode === 'logo' ? 'embed' : mode);
     });
   }
@@ -655,6 +664,14 @@ if (btnDetect) {
       if (totalBlocksEl) totalBlocksEl.textContent = data.total_blocks;
       if (tamperRatioEl) tamperRatioEl.textContent = (data.tamper_ratio * 100).toFixed(1) + '%';
 
+      // Tombol unduh hasil tamper map
+      const btnDownloadTamperMap = document.getElementById('btn-download-tamper-map');
+      if (btnDownloadTamperMap) {
+        btnDownloadTamperMap.onclick = () => {
+          downloadBase64(data.tamper_map, 'veilux-tamper-map.png');
+        };
+      }
+
       document.getElementById('result-detect').hidden = false;
       showToast('Analisis deteksi watermark selesai.', 'success');
     } catch (err) {
@@ -756,6 +773,21 @@ if (btnAttack) {
           wmEl.textContent = '';
         }
         if (attackLogoWrap) attackLogoWrap.hidden = true;
+      }
+
+      // Tombol unduh hasil attack
+      const btnDownloadAttackAfter = document.getElementById('btn-download-attack-after');
+      if (btnDownloadAttackAfter) {
+        btnDownloadAttackAfter.onclick = () => {
+          downloadBase64(data.after_image, 'veilux-attack-result.png');
+        };
+      }
+
+      const btnDownloadAttackTamper = document.getElementById('btn-download-attack-tamper');
+      if (btnDownloadAttackTamper) {
+        btnDownloadAttackTamper.onclick = () => {
+          downloadBase64(data.tamper_map, 'veilux-attack-tamper-map.png');
+        };
       }
 
       document.getElementById('result-attack').hidden = false;
