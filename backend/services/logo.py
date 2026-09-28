@@ -1,4 +1,4 @@
-"""Layanan pemrosesan dan representasi biner untuk watermark logo (Stage 3A).
+"""Layanan pemrosesan dan representasi biner untuk watermark logo.
 
 Modul ini mengimplementasikan:
 1. Normalisasi citra logo (resize ber-aspect-ratio, konversi grayscale, threshold biner).

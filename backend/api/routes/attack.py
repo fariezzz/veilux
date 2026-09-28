@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import Dict, Optional
+import time
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
 from PIL import Image, ImageEnhance
 from pydantic import BaseModel, Field
 
 from backend.api.routes.embed import _load_image, _read_image_upload, image_to_data_url
 from backend.core.config import settings
+from backend.services.export_excel import generate_benchmark_xlsx
 from backend.services.watermark import calculate_mse, calculate_psnr, detect_watermark
 
 logger = logging.getLogger(__name__)
@@ -192,3 +194,46 @@ async def attack_endpoint(
         "total_blocks": detect_result["total_blocks"],
         "tamper_ratio": detect_result["tamper_ratio"],
     }
+
+
+class BenchmarkExportRequest(BaseModel):
+    watermark_type: Optional[str] = Field("text", description="Tipe watermark yang diuji (text atau logo)")
+    results: List[Dict[str, Any]] = Field(..., description="Daftar baris data benchmark serangan")
+
+
+@router.post(
+    "/benchmark/export-xlsx",
+    summary="Ekspor hasil benchmark seluruh serangan ke format Excel (.xlsx)",
+)
+async def export_benchmark_xlsx_endpoint(payload: BenchmarkExportRequest) -> Response:
+    """Menghasilkan berkas Excel (.xlsx) rapi dari tabel hasil benchmark evaluasi serangan."""
+    if not payload.results:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Data hasil benchmark kosong, tidak ada baris untuk diekspor.",
+        )
+
+    try:
+        metadata = {
+            "watermark_type": (payload.watermark_type or "TEXT").upper(),
+        }
+        xlsx_bytes = generate_benchmark_xlsx(payload.results, metadata=metadata)
+    except Exception:
+        logger.exception("Gagal menghasilkan berkas Excel benchmark")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal membuat dokumen Excel benchmark.",
+        )
+
+    filename = f"veilux-benchmark-serangan-{int(time.time())}.xlsx"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers,
+    )
+

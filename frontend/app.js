@@ -56,6 +56,9 @@ function applyTheme(theme, save = true) {
     } catch (e) {}
   }
   updateThemeUI(theme);
+  if (typeof renderBenchmarkChart === 'function' && typeof currentBenchmarkResults !== 'undefined' && currentBenchmarkResults.length > 0) {
+    renderBenchmarkChart();
+  }
 }
 
 function initTheme() {
@@ -793,6 +796,228 @@ if (btnDetect) {
   });
 }
 
+// Menampilkan visualisasi citra dan metrik hasil simulasi serangan
+function renderAttackResultDetails(data, attackType, attackDisplayName) {
+  if (!data) return;
+
+  const headerEl = document.getElementById('attack-result-header');
+  if (headerEl) {
+    headerEl.textContent = `SERANGAN: ${(attackDisplayName || attackType || '').toUpperCase()}`;
+  }
+
+  // Citra sebelum serangan
+  const imgBefore = document.getElementById('attack-before');
+  if (imgBefore && data.before_image) {
+    imgBefore.src = data.before_image;
+  }
+
+  // Citra sesudah serangan
+  const imgAttackAfter = document.getElementById('attack-after');
+  if (imgAttackAfter && data.after_image) {
+    imgAttackAfter.src = data.after_image;
+    imgAttackAfter.style.cursor = 'zoom-in';
+    imgAttackAfter.title = 'Klik untuk membuka citra di tab baru';
+    imgAttackAfter.onclick = () => openImageInNewTab(data.after_image);
+  }
+
+  // Citra tamper map
+  const imgAttackTamper = document.getElementById('attack-tamper');
+  if (imgAttackTamper && data.tamper_map) {
+    imgAttackTamper.src = data.tamper_map;
+    imgAttackTamper.style.cursor = 'zoom-in';
+    imgAttackTamper.title = 'Klik untuk membuka citra di tab baru';
+    imgAttackTamper.onclick = () => openImageInNewTab(data.tamper_map);
+  }
+
+  // Kartu metrik numerik
+  const psnrEl = document.getElementById('attack-psnr');
+  if (psnrEl) psnrEl.textContent = typeof data.psnr === 'number' ? data.psnr.toFixed(2) : (data.psnr || '--');
+
+  const mseEl = document.getElementById('attack-mse');
+  if (mseEl) mseEl.textContent = typeof data.mse === 'number' ? data.mse.toFixed(5) : (data.mse || '--');
+
+  const ncEl = document.getElementById('attack-nc');
+  if (ncEl) {
+    ncEl.textContent = data.nc !== null && data.nc !== undefined
+      ? (typeof data.nc === 'number' ? data.nc.toFixed(4) : data.nc)
+      : (attackType === 'crop' ? 'N/A (Crop)' : '--');
+  }
+
+  const berEl = document.getElementById('attack-ber');
+  if (berEl) {
+    berEl.textContent = data.ber !== null && data.ber !== undefined
+      ? (typeof data.ber === 'number' ? data.ber.toFixed(4) : data.ber)
+      : (attackType === 'crop' ? 'N/A (Crop)' : '--');
+  }
+
+  // Statistik integritas blok
+  const attackValidBlocksEl = document.getElementById('attack-valid-blocks');
+  const attackTotalBlocksEl = document.getElementById('attack-total-blocks');
+  const attackTamperRatioEl = document.getElementById('attack-tamper-ratio');
+  if (attackValidBlocksEl) attackValidBlocksEl.textContent = data.valid_blocks !== undefined ? data.valid_blocks : '--';
+  if (attackTotalBlocksEl) attackTotalBlocksEl.textContent = data.total_blocks !== undefined ? data.total_blocks : '--';
+  if (attackTamperRatioEl) {
+    attackTamperRatioEl.textContent = typeof data.tamper_ratio === 'number'
+      ? `${(data.tamper_ratio * 100).toFixed(1)}%`
+      : (data.tamper_ratio || '--');
+  }
+
+  // Keterangan dinamis metric cards
+  const hintAttPsnr = document.getElementById('hint-attack-psnr');
+  if (hintAttPsnr && typeof data.psnr === 'number') {
+    hintAttPsnr.textContent = data.psnr >= 35
+      ? `Distorsi visual rendah (${data.psnr.toFixed(2)} dB)`
+      : (data.psnr >= 25
+        ? `Distorsi visual sedang (${data.psnr.toFixed(2)} dB)`
+        : `Distorsi visual berat (${data.psnr.toFixed(2)} dB)`);
+  }
+
+  const hintAttMse = document.getElementById('hint-attack-mse');
+  if (hintAttMse && typeof data.mse === 'number') {
+    hintAttMse.textContent = `Deviasi kuadratik piksel rata-rata: ${data.mse.toFixed(4)}`;
+  }
+
+  const hintAttNc = document.getElementById('hint-attack-nc');
+  if (hintAttNc) {
+    if (attackType === 'crop') {
+      hintAttNc.textContent = 'Desinkronisasi spasial: dimensi berubah akibat cropping, NC tidak valid';
+    } else if (data.nc === null || data.nc === undefined) {
+      hintAttNc.textContent = 'Tidak ada watermark referensi untuk mengukur korelasi';
+    } else if (typeof data.nc === 'number' && data.nc >= 0.99) {
+      hintAttNc.textContent = `Watermark bertahan sempurna pasca-serangan (NC: ${data.nc.toFixed(4)})`;
+    } else if (typeof data.nc === 'number' && data.nc >= 0.7) {
+      hintAttNc.textContent = `Korelasi watermark bertahan moderat (NC: ${data.nc.toFixed(4)})`;
+    } else {
+      hintAttNc.textContent = typeof data.nc === 'number' ? `Korelasi rusak parah akibat serangan (NC: ${data.nc.toFixed(4)})` : 'Korelasi tidak tersedia';
+    }
+  }
+
+  const hintAttBer = document.getElementById('hint-attack-ber');
+  if (hintAttBer) {
+    if (attackType === 'crop') {
+      hintAttBer.textContent = 'Desinkronisasi spasial: koordinat LSB terpotong, BER tidak valid';
+    } else if (data.ber === null || data.ber === undefined) {
+      hintAttBer.textContent = 'Tidak ada watermark referensi untuk mengukur bit error';
+    } else if (data.ber === 0) {
+      hintAttBer.textContent = '0% bit berubah (seluruh bit watermark utuh)';
+    } else {
+      hintAttBer.textContent = typeof data.ber === 'number' ? `${(data.ber * 100).toFixed(2)}% bit LSB rusak akibat manipulasi` : `${data.ber} bit error`;
+    }
+  }
+
+  const hintAttValidBlocks = document.getElementById('hint-attack-valid-blocks');
+  if (hintAttValidBlocks && data.total_blocks !== undefined) {
+    hintAttValidBlocks.textContent = data.valid_blocks === data.total_blocks
+      ? `Seluruh blok (${data.valid_blocks}/${data.total_blocks}) bertahan dari serangan`
+      : `${data.total_blocks - data.valid_blocks} dari ${data.total_blocks} blok rusak akibat serangan`;
+  }
+
+  const hintAttTamperRatio = document.getElementById('hint-attack-tamper-ratio');
+  if (hintAttTamperRatio) {
+    const trNum = typeof data.tamper_ratio === 'number' ? data.tamper_ratio : parseFloat(String(data.tamper_ratio).replace('%', '')) / 100;
+    hintAttTamperRatio.textContent = trNum === 0
+      ? 'Kerusakan 0.0% (struktur blok utuh)'
+      : `${(trNum * 100).toFixed(1)}% blok citra terindikasi rusak`;
+  }
+
+  // Lencana status deteksi dan integritas
+  const statusEl = document.getElementById('attack-detect-status');
+  const statusTextEl = document.getElementById('attack-detect-text');
+  const statusDescEl = document.getElementById('attack-detect-desc');
+  const badgeIntegrity = document.getElementById('badge-attack-integrity');
+  const badgeWatermark = document.getElementById('badge-attack-watermark');
+  const wmEl = document.getElementById('attack-detected-watermark');
+  const attackLogoWrap = document.getElementById('attack-detected-logo-wrap');
+  const attackLogoImg = document.getElementById('attack-detected-logo-img');
+  const attackLogoDims = document.getElementById('attack-detected-logo-dims');
+
+  if (statusEl) {
+    if (data.watermark_detected) {
+      statusEl.classList.remove('detect-status-fail');
+      statusEl.querySelector('.detect-status-icon').textContent = '✓';
+
+      if (badgeIntegrity) {
+        badgeIntegrity.className = 'status-badge status-badge-ok';
+        badgeIntegrity.textContent = 'HMAC: VALID';
+      }
+      if (badgeWatermark) {
+        badgeWatermark.className = 'status-badge status-badge-ok';
+        badgeWatermark.textContent = 'WATERMARK: UTUH';
+      }
+      if (statusTextEl) statusTextEl.textContent = 'Watermark Masih Utuh / Bertahan';
+      if (statusDescEl) statusDescEl.textContent = 'Otentikasi HMAC lolos verifikasi pasca-manipulasi.';
+
+      if (data.watermark_type === 'LOGO' && data.logo_image) {
+        if (wmEl) wmEl.style.display = 'none';
+        if (attackLogoWrap) attackLogoWrap.hidden = false;
+        if (attackLogoImg) attackLogoImg.src = data.logo_image;
+        if (attackLogoDims) attackLogoDims.textContent = `${data.logo_width} × ${data.logo_height} px`;
+      } else {
+        if (attackLogoWrap) attackLogoWrap.hidden = true;
+        if (wmEl) {
+          wmEl.style.display = 'block';
+          wmEl.textContent = data.watermark ? `"${data.watermark}"` : '';
+        }
+      }
+    } else {
+      statusEl.classList.add('detect-status-fail');
+      statusEl.querySelector('.detect-status-icon').textContent = '✗';
+
+      if (badgeIntegrity) {
+        badgeIntegrity.className = 'status-badge status-badge-fail';
+        badgeIntegrity.textContent = 'HMAC: RUSAK';
+      }
+      if (badgeWatermark) {
+        if (attackType === 'crop') {
+          badgeWatermark.className = 'status-badge status-badge-fail';
+          badgeWatermark.textContent = 'WATERMARK: DESINKRONISASI';
+        } else {
+          badgeWatermark.className = typeof data.nc === 'number' && data.nc > 0
+            ? 'status-badge status-badge-warn'
+            : 'status-badge status-badge-fail';
+          badgeWatermark.textContent = typeof data.nc === 'number' && data.nc > 0
+            ? 'WATERMARK: TERDEGRADASI'
+            : 'WATERMARK: HILANG (FRAGILE)';
+        }
+      }
+
+      if (statusTextEl) statusTextEl.textContent = 'Integritas Rusak Akibat Serangan (Fragile LSB)';
+      if (statusDescEl) {
+        if (attackType === 'crop') {
+          statusDescEl.textContent = 'Pemotongan geometri memutus koordinat spasial LSB, memicu kegagalan HMAC total.';
+        } else {
+          statusDescEl.textContent = data.nc !== null && data.nc !== undefined
+            ? 'Otentikasi HMAC gagal. Metrik NC & BER dihitung dari pembandingan bit LSB spasial terhadap referensi.'
+            : 'Otentikasi HMAC gagal. Pola bit LSB terdistorsi oleh serangan manipulasi.';
+        }
+      }
+
+      if (wmEl) {
+        wmEl.style.display = 'block';
+        wmEl.textContent = '';
+      }
+      if (attackLogoWrap) attackLogoWrap.hidden = true;
+    }
+  }
+
+  // Tombol unduh hasil serangan
+  const btnDownloadAttackAfter = document.getElementById('btn-download-attack-after');
+  if (btnDownloadAttackAfter && data.after_image) {
+    btnDownloadAttackAfter.onclick = () => {
+      downloadBase64(data.after_image, `veilux-attack-${attackType || 'result'}.png`);
+    };
+  }
+
+  const btnDownloadAttackTamper = document.getElementById('btn-download-attack-tamper');
+  if (btnDownloadAttackTamper && data.tamper_map) {
+    btnDownloadAttackTamper.onclick = () => {
+      downloadBase64(data.tamper_map, `veilux-tamper-map-${attackType || 'result'}.png`);
+    };
+  }
+
+  document.getElementById('result-attack').hidden = false;
+}
+
 // Alur kerja simulasi serangan (attack)
 const btnAttack = document.getElementById('btn-attack');
 if (btnAttack) {
@@ -820,196 +1045,17 @@ if (btnAttack) {
       crop: 'Cropping',
       resize: 'Resize',
       noise: 'Gaussian Noise',
-      brightness: 'Brightness Adjustment',
-      contrast: 'Contrast Adjustment',
+      brightness: 'Brightness Shift',
+      contrast: 'Contrast Shift',
     };
 
     showLoading(`Menjalankan simulasi serangan ${attackNames[state.attack.selectedAttack]}...`);
 
     try {
       const data = await apiCall('/attack', formData);
-
-      document.getElementById('attack-result-header').textContent =
-        `SERANGAN: ${attackNames[state.attack.selectedAttack].toUpperCase()}`;
-
-      document.getElementById('attack-before').src = data.before_image;
-      const imgAttackAfter = document.getElementById('attack-after');
-      imgAttackAfter.src = data.after_image;
-      imgAttackAfter.style.cursor = 'zoom-in';
-      imgAttackAfter.title = 'Klik untuk membuka citra di tab baru';
-      imgAttackAfter.onclick = () => openImageInNewTab(data.after_image);
-
-      const imgAttackTamper = document.getElementById('attack-tamper');
-      imgAttackTamper.src = data.tamper_map;
-      imgAttackTamper.style.cursor = 'zoom-in';
-      imgAttackTamper.title = 'Klik untuk membuka citra di tab baru';
-      imgAttackTamper.onclick = () => openImageInNewTab(data.tamper_map);
-
-      document.getElementById('attack-psnr').textContent = data.psnr.toFixed(2);
-      document.getElementById('attack-mse').textContent = data.mse.toFixed(5);
-
-      // Statistik integritas blok pasca-serangan
-      const attackValidBlocksEl = document.getElementById('attack-valid-blocks');
-      const attackTotalBlocksEl = document.getElementById('attack-total-blocks');
-      const attackTamperRatioEl = document.getElementById('attack-tamper-ratio');
-      if (attackValidBlocksEl) attackValidBlocksEl.textContent = data.valid_blocks;
-      if (attackTotalBlocksEl) attackTotalBlocksEl.textContent = data.total_blocks;
-      if (attackTamperRatioEl) attackTamperRatioEl.textContent = (data.tamper_ratio * 100).toFixed(1) + '%';
-      document.getElementById('attack-nc').textContent =
-        data.nc !== null ? data.nc.toFixed(4) : '--';
-      document.getElementById('attack-ber').textContent =
-        data.ber !== null ? data.ber.toFixed(4) : '--';
-
-      // Perbarui keterangan dinamis pada metric card hint (attack)
-      const hintAttPsnr = document.getElementById('hint-attack-psnr');
-      if (hintAttPsnr) {
-        hintAttPsnr.textContent = data.psnr >= 35
-          ? `Distorsi visual rendah (${data.psnr.toFixed(2)} dB)`
-          : (data.psnr >= 25
-            ? `Distorsi visual sedang (${data.psnr.toFixed(2)} dB)`
-            : `Distorsi visual berat (${data.psnr.toFixed(2)} dB)`);
-      }
-
-      const hintAttMse = document.getElementById('hint-attack-mse');
-      if (hintAttMse) {
-        hintAttMse.textContent = `Deviasi kuadratik piksel rata-rata: ${data.mse.toFixed(4)}`;
-      }
-
-      const hintAttNc = document.getElementById('hint-attack-nc');
-      if (hintAttNc) {
-        if (state.attack.selectedAttack === 'crop') {
-          hintAttNc.textContent = 'Desinkronisasi spasial: dimensi berubah akibat cropping, NC tidak valid';
-        } else if (data.nc === null) {
-          hintAttNc.textContent = 'Tidak ada watermark referensi untuk mengukur korelasi';
-        } else if (data.nc >= 0.99) {
-          hintAttNc.textContent = `Watermark bertahan sempurna pasca-serangan (NC: ${data.nc.toFixed(4)})`;
-        } else if (data.nc >= 0.7) {
-          hintAttNc.textContent = `Korelasi watermark bertahan moderat (NC: ${data.nc.toFixed(4)})`;
-        } else {
-          hintAttNc.textContent = `Korelasi rusak parah akibat serangan (NC: ${data.nc.toFixed(4)})`;
-        }
-      }
-
-      const hintAttBer = document.getElementById('hint-attack-ber');
-      if (hintAttBer) {
-        if (state.attack.selectedAttack === 'crop') {
-          hintAttBer.textContent = 'Desinkronisasi spasial: koordinat LSB terpotong, BER tidak valid';
-        } else if (data.ber === null) {
-          hintAttBer.textContent = 'Tidak ada watermark referensi untuk mengukur bit error';
-        } else if (data.ber === 0) {
-          hintAttBer.textContent = '0% bit berubah (seluruh bit watermark utuh)';
-        } else {
-          hintAttBer.textContent = `${(data.ber * 100).toFixed(2)}% bit LSB rusak akibat manipulasi`;
-        }
-      }
-
-      const hintAttValidBlocks = document.getElementById('hint-attack-valid-blocks');
-      if (hintAttValidBlocks) {
-        hintAttValidBlocks.textContent = data.valid_blocks === data.total_blocks
-          ? `Seluruh blok (${data.valid_blocks}/${data.total_blocks}) bertahan dari serangan`
-          : `${data.total_blocks - data.valid_blocks} dari ${data.total_blocks} blok rusak akibat serangan`;
-      }
-
-      const hintAttTamperRatio = document.getElementById('hint-attack-tamper-ratio');
-      if (hintAttTamperRatio) {
-        hintAttTamperRatio.textContent = data.tamper_ratio === 0
-          ? 'Kerusakan 0.0% (struktur blok utuh)'
-          : `${(data.tamper_ratio * 100).toFixed(1)}% blok citra terindikasi rusak`;
-      }
-
-      const statusEl = document.getElementById('attack-detect-status');
-      const statusTextEl = document.getElementById('attack-detect-text');
-      const statusDescEl = document.getElementById('attack-detect-desc');
-      const badgeIntegrity = document.getElementById('badge-attack-integrity');
-      const badgeWatermark = document.getElementById('badge-attack-watermark');
-      const wmEl = document.getElementById('attack-detected-watermark');
-      const attackLogoWrap = document.getElementById('attack-detected-logo-wrap');
-      const attackLogoImg = document.getElementById('attack-detected-logo-img');
-      const attackLogoDims = document.getElementById('attack-detected-logo-dims');
-
-      if (data.watermark_detected) {
-        statusEl.classList.remove('detect-status-fail');
-        statusEl.querySelector('.detect-status-icon').textContent = '✓';
-
-        if (badgeIntegrity) {
-          badgeIntegrity.className = 'status-badge status-badge-ok';
-          badgeIntegrity.textContent = 'HMAC: VALID';
-        }
-        if (badgeWatermark) {
-          badgeWatermark.className = 'status-badge status-badge-ok';
-          badgeWatermark.textContent = 'WATERMARK: UTUH';
-        }
-        if (statusTextEl) statusTextEl.textContent = 'Watermark Masih Utuh / Bertahan';
-        if (statusDescEl) statusDescEl.textContent = 'Otentikasi HMAC lolos verifikasi pasca-manipulasi.';
-
-        if (data.watermark_type === 'LOGO' && data.logo_image) {
-          if (wmEl) wmEl.style.display = 'none';
-          if (attackLogoWrap) attackLogoWrap.hidden = false;
-          if (attackLogoImg) attackLogoImg.src = data.logo_image;
-          if (attackLogoDims) attackLogoDims.textContent = `${data.logo_width} × ${data.logo_height} px`;
-        } else {
-          if (attackLogoWrap) attackLogoWrap.hidden = true;
-          if (wmEl) {
-            wmEl.style.display = 'block';
-            wmEl.textContent = `"${data.watermark}"`;
-          }
-        }
-      } else {
-        statusEl.classList.add('detect-status-fail');
-        statusEl.querySelector('.detect-status-icon').textContent = '✗';
-
-        if (badgeIntegrity) {
-          badgeIntegrity.className = 'status-badge status-badge-fail';
-          badgeIntegrity.textContent = 'HMAC: RUSAK';
-        }
-        if (badgeWatermark) {
-          if (state.attack.selectedAttack === 'crop') {
-            badgeWatermark.className = 'status-badge status-badge-fail';
-            badgeWatermark.textContent = 'WATERMARK: DESINKRONISASI';
-          } else {
-            badgeWatermark.className = data.nc !== null && data.nc > 0
-              ? 'status-badge status-badge-warn'
-              : 'status-badge status-badge-fail';
-            badgeWatermark.textContent = data.nc !== null && data.nc > 0
-              ? 'WATERMARK: TERDEGRADASI'
-              : 'WATERMARK: HILANG (FRAGILE)';
-          }
-        }
-
-        if (statusTextEl) statusTextEl.textContent = 'Integritas Rusak Akibat Serangan (Fragile LSB)';
-        if (statusDescEl) {
-          if (state.attack.selectedAttack === 'crop') {
-            statusDescEl.textContent = 'Pemotongan geometri memutus koordinat spasial LSB, memicu kegagalan HMAC total.';
-          } else {
-            statusDescEl.textContent = data.nc !== null
-              ? 'Otentikasi HMAC gagal. Metrik NC & BER dihitung dari pembandingan bit LSB spasial terhadap referensi.'
-              : 'Otentikasi HMAC gagal. Pola bit LSB terdistorsi oleh serangan manipulasi.';
-          }
-        }
-
-        if (wmEl) {
-          wmEl.style.display = 'block';
-          wmEl.textContent = '';
-        }
-        if (attackLogoWrap) attackLogoWrap.hidden = true;
-      }
-
-      // Tombol unduh hasil attack
-      const btnDownloadAttackAfter = document.getElementById('btn-download-attack-after');
-      if (btnDownloadAttackAfter) {
-        btnDownloadAttackAfter.onclick = () => {
-          downloadBase64(data.after_image, 'veilux-attack-result.png');
-        };
-      }
-
-      const btnDownloadAttackTamper = document.getElementById('btn-download-attack-tamper');
-      if (btnDownloadAttackTamper) {
-        btnDownloadAttackTamper.onclick = () => {
-          downloadBase64(data.tamper_map, 'veilux-attack-tamper-map.png');
-        };
-      }
-
-      document.getElementById('result-attack').hidden = false;
+      const benchNav = document.getElementById('benchmark-scenario-nav');
+      if (benchNav) benchNav.hidden = true;
+      renderAttackResultDetails(data, state.attack.selectedAttack, attackNames[state.attack.selectedAttack]);
       showToast('Uji serangan dan deteksi selesai.', 'success');
     } catch (err) {
       showToast(`Gagal: ${err.message}`, 'error');
@@ -1021,6 +1067,58 @@ if (btnAttack) {
 
 // Data cache benchmark seluruh serangan
 let currentBenchmarkResults = [];
+let currentBenchmarkActiveIndex = 0;
+
+// Memilih dan menampilkan hasil citra dari salah satu serangan pada benchmark
+function selectBenchmarkRow(idx) {
+  if (!currentBenchmarkResults || !currentBenchmarkResults[idx]) return;
+  currentBenchmarkActiveIndex = idx;
+  const item = currentBenchmarkResults[idx];
+
+  // Perbarui indikator langkah di navigasi skenario
+  const stepEl = document.getElementById('benchmark-scenario-step');
+  if (stepEl) {
+    stepEl.textContent = `${idx + 1} / ${currentBenchmarkResults.length}`;
+  }
+
+  // Perbarui status aktif tombol pill skenario
+  const pills = document.querySelectorAll('.benchmark-scenario-pill');
+  pills.forEach((p, i) => {
+    p.classList.toggle('benchmark-scenario-pill-active', i === idx);
+  });
+
+  // Sorot baris tabel benchmark
+  const tbody = document.getElementById('benchmark-table-body');
+  if (tbody) {
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach((tr, i) => {
+      tr.classList.toggle('benchmark-row-selected', i === idx);
+    });
+  }
+
+  if (item.rawResult) {
+    renderAttackResultDetails(item.rawResult, item.attackKey, `${item.name} (Skenario ${item.no}/${currentBenchmarkResults.length})`);
+  }
+}
+
+// Tombol navigasi skenario benchmark (Sebelumnya / Selanjutnya)
+const btnBenchPrev = document.getElementById('btn-bench-prev');
+if (btnBenchPrev) {
+  btnBenchPrev.addEventListener('click', () => {
+    if (!currentBenchmarkResults.length) return;
+    const prevIdx = (currentBenchmarkActiveIndex - 1 + currentBenchmarkResults.length) % currentBenchmarkResults.length;
+    selectBenchmarkRow(prevIdx);
+  });
+}
+
+const btnBenchNext = document.getElementById('btn-bench-next');
+if (btnBenchNext) {
+  btnBenchNext.addEventListener('click', () => {
+    if (!currentBenchmarkResults.length) return;
+    const nextIdx = (currentBenchmarkActiveIndex + 1) % currentBenchmarkResults.length;
+    selectBenchmarkRow(nextIdx);
+  });
+}
 
 // Alur kerja benchmark semua 8 jenis serangan
 const btnBenchmarkAll = document.getElementById('btn-benchmark-all');
@@ -1046,6 +1144,7 @@ if (btnBenchmarkAll) {
     ];
 
     currentBenchmarkResults = [];
+    currentBenchmarkActiveIndex = 0;
     const tbody = document.getElementById('benchmark-table-body');
     if (tbody) tbody.innerHTML = '';
     const section = document.getElementById('benchmark-section');
@@ -1076,10 +1175,16 @@ if (btnBenchmarkAll) {
 
         const data = await apiCall('/attack', formData);
 
+        // Jika iterasi pertama, langsung tampilkan visualisasi citra agar panel inspeksi tidak kosong
+        if (i === 0) {
+          renderAttackResultDetails(data, atk.key, `${atk.name} (Skenario 1/8)`);
+        }
+
         const row = {
           no: i + 1,
           name: atk.name,
           category: atk.category,
+          attackKey: atk.key,
           psnr: data.psnr.toFixed(2),
           mse: data.mse.toFixed(4),
           nc: data.nc !== null ? data.nc.toFixed(4) : (atk.key === 'crop' ? 'N/A (Crop)' : '--'),
@@ -1087,11 +1192,15 @@ if (btnBenchmarkAll) {
           detected: data.watermark_detected,
           validBlocks: `${data.valid_blocks}/${data.total_blocks}`,
           tamperRatio: `${(data.tamper_ratio * 100).toFixed(1)}%`,
+          rawResult: data,
         };
         currentBenchmarkResults.push(row);
 
         if (tbody) {
           const tr = document.createElement('tr');
+          tr.setAttribute('title', 'Klik untuk menampilkan citra dan metrik serangan ini');
+          const rowIndex = i;
+          tr.addEventListener('click', () => selectBenchmarkRow(rowIndex));
           tr.innerHTML = `
             <td>${row.no}</td>
             <td>${row.name}</td>
@@ -1108,7 +1217,26 @@ if (btnBenchmarkAll) {
         }
       }
 
-      document.getElementById('result-attack').hidden = false;
+      // Bangkitkan tombol pill skenario di navigasi atas
+      const navEl = document.getElementById('benchmark-scenario-nav');
+      const pillsContainer = document.getElementById('benchmark-scenario-pills');
+      if (navEl && pillsContainer) {
+        navEl.hidden = false;
+        pillsContainer.innerHTML = '';
+        currentBenchmarkResults.forEach((r, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `benchmark-scenario-pill ${idx === 0 ? 'benchmark-scenario-pill-active' : ''}`;
+          btn.setAttribute('title', `Pilih untuk melihat citra dan evaluasi ${r.name}`);
+          const dotColor = r.detected ? '#10b981' : '#ef4444';
+          btn.innerHTML = `<span class="benchmark-scenario-pill-dot" style="background:${dotColor};"></span><span>${r.no}. ${r.name}</span>`;
+          btn.addEventListener('click', () => selectBenchmarkRow(idx));
+          pillsContainer.appendChild(btn);
+        });
+      }
+
+      selectBenchmarkRow(0);
+      renderBenchmarkChart();
       section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       showToast('Seluruh 8 pengujian serangan selesai.', 'success');
     } catch (err) {
@@ -1178,6 +1306,377 @@ if (btnDownloadBenchmarkCsv) {
     showToast('Berkas CSV benchmark berhasil diunduh.', 'success');
   });
 }
+
+// Tombol unduh hasil benchmark format Excel (.xlsx)
+const btnDownloadBenchmarkXlsx = document.getElementById('btn-download-benchmark-xlsx');
+if (btnDownloadBenchmarkXlsx) {
+  btnDownloadBenchmarkXlsx.addEventListener('click', async () => {
+    if (!currentBenchmarkResults.length) {
+      showToast('Belum ada data benchmark untuk diunduh.', 'info');
+      return;
+    }
+
+    try {
+      showLoading('Menghasilkan dokumen Excel (.xlsx)...');
+      const response = await fetch(`${API_BASE}/benchmark/export-xlsx`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          watermark_type: state.attack.refType || 'text',
+          results: currentBenchmarkResults,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `veilux-benchmark-serangan-${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Dokumen Excel (.xlsx) berhasil diunduh.', 'success');
+    } catch (err) {
+      showToast(`Gagal mengunduh Excel: ${err.message}`, 'error');
+    } finally {
+      hideLoading();
+    }
+  });
+}
+
+// Manajemen grafik visualisasi benchmark (berbasis SVG aman tanpa context loss)
+let currentBenchmarkMetric = 'psnr';
+
+// Inisialisasi tab pemilih metrik grafik
+document.querySelectorAll('.benchmark-metric-tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.benchmark-metric-tab').forEach((t) => {
+      t.classList.remove('benchmark-metric-tab-active');
+    });
+    tab.classList.add('benchmark-metric-tab-active');
+    currentBenchmarkMetric = tab.dataset.metric || 'psnr';
+    renderBenchmarkChart();
+  });
+});
+
+// Tombol unduh gambar grafik berformat PNG
+const btnDownloadBenchmarkChart = document.getElementById('btn-download-benchmark-chart');
+if (btnDownloadBenchmarkChart) {
+  btnDownloadBenchmarkChart.addEventListener('click', () => {
+    const svgEl = document.getElementById('benchmark-chart-svg');
+    if (!svgEl || !currentBenchmarkResults.length) {
+      showToast('Belum ada grafik benchmark untuk diunduh.', 'info');
+      return;
+    }
+
+    try {
+      const isDark = document.documentElement.classList.contains('dark');
+      const svgXml = new XMLSerializer().serializeToString(svgEl);
+      const svgBlob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(svgBlob);
+      const img = new Image();
+
+      img.onload = () => {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 1600;
+        offCanvas.height = 440;
+        const offCtx = offCanvas.getContext('2d');
+        if (!offCtx) return;
+
+        offCtx.fillStyle = isDark ? '#0f172a' : '#ffffff';
+        offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+        offCtx.drawImage(img, 0, 0, offCanvas.width, offCanvas.height);
+
+        const a = document.createElement('a');
+        a.href = offCanvas.toDataURL('image/png');
+        a.download = `veilux-grafik-benchmark-${currentBenchmarkMetric}-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        showToast('Grafik benchmark berhasil diunduh sebagai gambar PNG.', 'success');
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        showToast('Gagal memproses gambar grafik untuk diunduh.', 'error');
+      };
+      img.src = blobUrl;
+    } catch (err) {
+      showToast(`Gagal mengunduh grafik: ${err.message}`, 'error');
+    }
+  });
+}
+
+// Fungsi utama rendering grafik berbasis SVG (bebas context loss, tajam, dan sangat ringan)
+function renderBenchmarkChart(updateLegend = true) {
+  const svg = document.getElementById('benchmark-chart-svg');
+  const tooltip = document.getElementById('benchmark-chart-tooltip');
+  if (!svg) return;
+
+  const isDark = document.documentElement.classList.contains('dark');
+  const bgCanvas = isDark ? '#141416' : '#fafafa';
+  const borderCol = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
+  const gridCol = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)';
+  const textPrimary = isDark ? '#f4f4f5' : '#09090b';
+  const textMuted = isDark ? '#a1a1aa' : '#71717a';
+
+  if (!currentBenchmarkResults || !currentBenchmarkResults.length) {
+    svg.innerHTML = `
+      <rect width="800" height="220" fill="${bgCanvas}" rx="4" />
+      <text x="400" y="110" fill="${textMuted}" font-family="monospace" font-size="12" text-anchor="middle" dominant-baseline="middle">
+        Jalankan "Uji Seluruh Serangan" untuk menampilkan grafik evaluasi forensik.
+      </text>
+    `;
+    if (updateLegend) {
+      const leg = document.getElementById('benchmark-chart-legend');
+      if (leg) leg.innerHTML = '';
+    }
+    return;
+  }
+
+  const width = 800;
+  const height = 220;
+  const margin = { top: 26, right: 28, bottom: 42, left: 52 };
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
+
+  let maxVal = 1;
+  let minVal = 0;
+  let unit = '';
+  let metricTitle = '';
+
+  const parseNum = (v) => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).replace('%', '').trim();
+    if (s === '--' || s.startsWith('N/A')) return null;
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  };
+
+  if (currentBenchmarkMetric === 'psnr') {
+    metricTitle = 'PEAK SIGNAL-TO-NOISE RATIO (PSNR) — Semakin tinggi semakin baik';
+    unit = ' dB';
+    const vals = currentBenchmarkResults.map((r) => parseNum(r.psnr) || 0);
+    maxVal = Math.max(60, Math.ceil(Math.max(...vals, 0) / 10) * 10);
+  } else if (currentBenchmarkMetric === 'mse') {
+    metricTitle = 'MEAN SQUARED ERROR (MSE) — Semakin rendah semakin baik';
+    unit = '';
+    const vals = currentBenchmarkResults.map((r) => parseNum(r.mse) || 0);
+    const topMse = Math.max(...vals, 10);
+    maxVal = Math.ceil(topMse * 1.15);
+  } else if (currentBenchmarkMetric === 'nc') {
+    metricTitle = 'NORMALIZED CORRELATION (NC BIPOLAR) — Rentang 0.0 s.d. 1.0 (Identik)';
+    unit = '';
+    maxVal = 1.0;
+  } else if (currentBenchmarkMetric === 'ber') {
+    metricTitle = 'BIT ERROR RATE (BER) — Rentang 0.0 (0% error) s.d. 1.0 (100% error)';
+    unit = '';
+    maxVal = 1.0;
+  } else if (currentBenchmarkMetric === 'tamper') {
+    metricTitle = 'PROPORSIONAL BLOK TERMANIPULASI (TAMPER RATIO %) — 0% adalah utuh';
+    unit = '%';
+    maxVal = 100;
+  }
+
+  let svgContent = `<rect width="${width}" height="${height}" fill="${bgCanvas}" rx="4" />`;
+  svgContent += `<text x="${margin.left}" y="14" fill="${textPrimary}" font-family="monospace" font-size="10" font-weight="bold">${metricTitle}</text>`;
+
+  // Grid horizontal dan label sumbu Y
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) {
+    const ratio = i / ticks;
+    const yPos = margin.top + plotH - ratio * plotH;
+    let labelVal = '';
+
+    const currentTickVal = minVal + ratio * (maxVal - minVal);
+    if (currentBenchmarkMetric === 'nc' || currentBenchmarkMetric === 'ber') {
+      labelVal = currentTickVal.toFixed(2);
+    } else if (currentBenchmarkMetric === 'mse') {
+      labelVal = currentTickVal > 999 ? (currentTickVal / 1000).toFixed(1) + 'k' : currentTickVal.toFixed(0);
+    } else {
+      labelVal = `${currentTickVal.toFixed(0)}${unit}`;
+    }
+
+    svgContent += `<text x="${margin.left - 6}" y="${yPos + 3}" fill="${textMuted}" font-family="monospace" font-size="9" text-anchor="end">${labelVal}</text>`;
+    svgContent += `<line x1="${margin.left}" y1="${yPos}" x2="${width - margin.right}" y2="${yPos}" stroke="${i === 0 ? borderCol : gridCol}" stroke-width="${i === 0 ? 1.5 : 1}" />`;
+  }
+
+  // Batang tiap serangan
+  const n = currentBenchmarkResults.length;
+  const slotW = plotW / n;
+  const barW = Math.min(34, slotW * 0.56);
+
+  currentBenchmarkResults.forEach((row, i) => {
+    const slotCenterX = margin.left + i * slotW + slotW / 2;
+    const shortName = row.name.replace(' (50% scale)', '').replace(' (15% corner)', '');
+
+    let barElements = '';
+    let rawVal = null;
+    if (currentBenchmarkMetric === 'psnr') rawVal = parseNum(row.psnr);
+    else if (currentBenchmarkMetric === 'mse') rawVal = parseNum(row.mse);
+    else if (currentBenchmarkMetric === 'nc') rawVal = parseNum(row.nc);
+    else if (currentBenchmarkMetric === 'ber') rawVal = parseNum(row.ber);
+    else if (currentBenchmarkMetric === 'tamper') rawVal = parseNum(row.tamperRatio);
+
+    const x = slotCenterX - barW / 2;
+
+    if (rawVal === null) {
+      const placeholderH = 14;
+      const y = margin.top + plotH - placeholderH;
+      barElements += `<rect x="${x}" y="${y}" width="${barW}" height="${placeholderH}" fill="none" stroke="${textMuted}" stroke-dasharray="2 2" />`;
+      barElements += `<text x="${slotCenterX}" y="${y - 3}" fill="${textMuted}" font-family="monospace" font-size="8.5" font-weight="bold" text-anchor="middle">N/A</text>`;
+    } else {
+      const clampedVal = Math.max(0, Math.min(maxVal, rawVal));
+      const barH = Math.max(2, (clampedVal / maxVal) * plotH);
+      const y = margin.top + plotH - barH;
+
+      let barColor = '#3b82f6';
+      if (currentBenchmarkMetric === 'psnr') {
+        barColor = rawVal >= 35 ? '#10b981' : (rawVal >= 25 ? '#f59e0b' : '#ef4444');
+      } else if (currentBenchmarkMetric === 'mse') {
+        barColor = rawVal <= 50 ? '#10b981' : (rawVal <= 500 ? '#f59e0b' : '#ef4444');
+      } else if (currentBenchmarkMetric === 'nc') {
+        barColor = rawVal >= 0.95 ? '#10b981' : (rawVal >= 0.70 ? '#f59e0b' : '#ef4444');
+      } else if (currentBenchmarkMetric === 'ber') {
+        barColor = rawVal <= 0.05 ? '#10b981' : (rawVal <= 0.25 ? '#f59e0b' : '#ef4444');
+      } else if (currentBenchmarkMetric === 'tamper') {
+        barColor = rawVal <= 10 ? '#10b981' : (rawVal <= 50 ? '#f59e0b' : '#ef4444');
+      }
+
+      let displayStr = '';
+      if (currentBenchmarkMetric === 'psnr') displayStr = `${rawVal.toFixed(1)}`;
+      else if (currentBenchmarkMetric === 'mse') displayStr = rawVal > 999 ? (rawVal / 1000).toFixed(1) + 'k' : rawVal.toFixed(1);
+      else if (currentBenchmarkMetric === 'nc' || currentBenchmarkMetric === 'ber') displayStr = rawVal.toFixed(3);
+      else if (currentBenchmarkMetric === 'tamper') displayStr = `${rawVal.toFixed(1)}%`;
+
+      barElements += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${barColor}" rx="3" ry="3" />`;
+      barElements += `<text x="${slotCenterX}" y="${y - 4}" fill="${textPrimary}" font-family="monospace" font-size="8.5" font-weight="bold" text-anchor="middle">${displayStr}</text>`;
+    }
+
+    const dotColor = row.detected ? '#10b981' : '#ef4444';
+    barElements += `<circle cx="${slotCenterX}" cy="${margin.top + plotH + 8}" r="2.5" fill="${dotColor}" />`;
+    barElements += `<text x="${slotCenterX}" y="${margin.top + plotH + 21}" fill="${textMuted}" font-family="monospace" font-size="9" text-anchor="middle">${shortName}</text>`;
+
+    svgContent += `
+      <g class="benchmark-svg-bar-group" data-index="${i}">
+        <rect x="${margin.left + i * slotW}" y="${margin.top}" width="${slotW}" height="${plotH + 36}" fill="transparent" />
+        ${barElements}
+      </g>
+    `;
+  });
+
+  svg.innerHTML = svgContent;
+
+  // Pasang event listener hover tooltip pada tiap kelompok batang SVG
+  const wrap = document.getElementById('benchmark-chart-wrap');
+  svg.querySelectorAll('.benchmark-svg-bar-group').forEach((grp) => {
+    grp.addEventListener('click', () => {
+      const idx = parseInt(grp.dataset.index, 10);
+      selectBenchmarkRow(idx);
+      const row = currentBenchmarkResults[idx];
+      if (row) {
+        showToast(`Menampilkan citra hasil: ${row.name}`, 'info');
+      }
+    });
+
+    grp.addEventListener('mouseenter', (e) => {
+      const idx = parseInt(grp.dataset.index, 10);
+      const row = currentBenchmarkResults[idx];
+      if (!row || !tooltip || !wrap) return;
+
+      let valStr = '';
+      if (currentBenchmarkMetric === 'psnr') valStr = `${row.psnr} dB`;
+      else if (currentBenchmarkMetric === 'mse') valStr = `${row.mse}`;
+      else if (currentBenchmarkMetric === 'nc') valStr = `${row.nc}`;
+      else if (currentBenchmarkMetric === 'ber') valStr = `${row.ber}`;
+      else if (currentBenchmarkMetric === 'tamper') valStr = `${row.tamperRatio}`;
+
+      tooltip.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 2px;">${row.name}</div>
+        <div style="color: var(--text-muted); font-size: 0.65rem; margin-bottom: 3px;">${row.category}</div>
+        <div>Nilai: <strong>${valStr}</strong></div>
+        <div style="margin-top: 2px;">Status: <span style="font-weight: 700; color: ${row.detected ? '#10b981' : '#ef4444'}">${row.detected ? 'Terdeteksi' : 'Rusak'}</span> (Blok: ${row.validBlocks})</div>
+      `;
+
+      const wrapRect = wrap.getBoundingClientRect();
+      const mouseX = e.clientX - wrapRect.left;
+      const mouseY = e.clientY - wrapRect.top;
+      tooltip.style.left = `${mouseX}px`;
+      tooltip.style.top = `${mouseY}px`;
+      tooltip.hidden = false;
+    });
+
+    grp.addEventListener('mousemove', (e) => {
+      if (!tooltip || !wrap || tooltip.hidden) return;
+      const wrapRect = wrap.getBoundingClientRect();
+      const mouseX = e.clientX - wrapRect.left;
+      const mouseY = e.clientY - wrapRect.top;
+      tooltip.style.left = `${mouseX}px`;
+      tooltip.style.top = `${mouseY}px`;
+    });
+
+    grp.addEventListener('mouseleave', () => {
+      if (tooltip) tooltip.hidden = true;
+    });
+  });
+
+  if (updateLegend) {
+    updateChartLegendUI();
+  }
+}
+
+// Perbarui teks legenda di bawah kanvas
+function updateChartLegendUI() {
+  const legend = document.getElementById('benchmark-chart-legend');
+  if (!legend) return;
+
+  if (currentBenchmarkMetric === 'psnr') {
+    legend.innerHTML = `
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #10b981;"></span><span>Sangat Baik (≥ 35 dB)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #f59e0b;"></span><span>Sedang (25 - 35 dB)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #ef4444;"></span><span>Distorsi Tinggi (< 25 dB)</span></div>
+    `;
+  } else if (currentBenchmarkMetric === 'mse') {
+    legend.innerHTML = `
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #10b981;"></span><span>Error Rendah (≤ 50)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #f59e0b;"></span><span>Error Sedang (50 - 500)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #ef4444;"></span><span>Error Tinggi (> 500)</span></div>
+    `;
+  } else if (currentBenchmarkMetric === 'nc') {
+    legend.innerHTML = `
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #10b981;"></span><span>Korelasi Sangat Kuat (≥ 0.95)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #f59e0b;"></span><span>Korelasi Sedang (0.70 - 0.95)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #ef4444;"></span><span>Korelasi Rusak / N/A (< 0.70)</span></div>
+    `;
+  } else if (currentBenchmarkMetric === 'ber') {
+    legend.innerHTML = `
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #10b981;"></span><span>Bit Error Rendah (≤ 5%)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #f59e0b;"></span><span>Bit Error Sedang (5% - 25%)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #ef4444;"></span><span>Bit Error Parah (> 25%)</span></div>
+    `;
+  } else if (currentBenchmarkMetric === 'tamper') {
+    legend.innerHTML = `
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #10b981;"></span><span>Integritas Terjaga (≤ 10%)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #f59e0b;"></span><span>Manipulasi Parsial (10% - 50%)</span></div>
+      <div class="benchmark-legend-item"><span class="benchmark-legend-dot" style="background: #ef4444;"></span><span>Manipulasi Luas (> 50%)</span></div>
+    `;
+  }
+}
+
+// Responsif saat jendela diubah ukurannya
+window.addEventListener('resize', () => {
+  if (typeof currentBenchmarkResults !== 'undefined' && currentBenchmarkResults.length > 0) {
+    renderBenchmarkChart(false);
+  }
+});
 
 // Fungsi utilitas pendukung
 function showLoading(text = 'Memproses...') {
@@ -1277,46 +1776,3 @@ function openImageInNewTab(dataUrl) {
 initTheme();
 initWatermarkType();
 
-// Klien live reload (mode pengembangan lokal)
-(function initLiveReload() {
-  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  if (!isLocal || window.location.protocol === 'file:') return;
-
-  const watchedFiles = ['index.html', 'style.css', 'app.js'];
-  const fileTimestamps = {};
-  let isChecking = false;
-
-  async function checkFile(file) {
-    try {
-      const res = await fetch(`${file}?_t=${Date.now()}`, { method: 'HEAD', cache: 'no-store' });
-      if (!res.ok) return;
-      const lastMod = res.headers.get('Last-Modified') || res.headers.get('ETag');
-      if (!lastMod) return;
-
-      if (!fileTimestamps[file]) {
-        fileTimestamps[file] = lastMod;
-      } else if (fileTimestamps[file] !== lastMod) {
-        fileTimestamps[file] = lastMod;
-        if (file === 'style.css') {
-          const links = document.querySelectorAll('link[rel="stylesheet"]');
-          links.forEach((link) => {
-            const href = link.getAttribute('href') || '';
-            if (href.includes('style.css')) {
-              link.setAttribute('href', `style.css?_t=${Date.now()}`);
-            }
-          });
-        } else {
-          setTimeout(() => window.location.reload(), 300);
-        }
-      }
-    } catch (e) {}
-  }
-
-  setInterval(() => {
-    if (isChecking) return;
-    isChecking = true;
-    Promise.all(watchedFiles.map(checkFile)).finally(() => {
-      isChecking = false;
-    });
-  }, 2500);
-})();

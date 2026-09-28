@@ -130,3 +130,57 @@ def test_attack_rejects_empty_secret_key(sample_stego_png_bytes):
     response = client.post("/api/attack", files=files, data=data)
     assert response.status_code == 400
     assert "Secret key tidak boleh kosong" in response.json()["detail"]
+
+
+def test_export_benchmark_xlsx_success():
+    """Pengujian endpoint ekspor XLSX menghasilkan berkas spreadsheet yang valid."""
+    import openpyxl
+    payload = {
+        "watermark_type": "text",
+        "results": [
+            {
+                "no": 1,
+                "name": "JPEG Q90",
+                "category": "Lossy Compression",
+                "psnr": 38.5,
+                "mse": 9.21,
+                "nc": 0.985,
+                "ber": 0.012,
+                "detected": True,
+                "validBlocks": "60/64",
+                "tamperRatio": "6.2%",
+            },
+            {
+                "no": 2,
+                "name": "Cropping (15%)",
+                "category": "Geometric Cropping",
+                "psnr": 18.2,
+                "mse": 980.5,
+                "nc": "N/A (Crop)",
+                "ber": "N/A (Crop)",
+                "detected": False,
+                "validBlocks": "0/64",
+                "tamperRatio": "100.0%",
+            },
+        ],
+    }
+    response = client.post("/api/benchmark/export-xlsx", json=payload)
+    assert response.status_code == 200
+    assert "spreadsheetml.sheet" in response.headers["content-type"]
+    assert "veilux-benchmark-serangan-" in response.headers["content-disposition"]
+    assert len(response.content) > 1000
+
+    # Pastikan berkas dapat dibuka oleh openpyxl dan struktur sel terbaca
+    wb = openpyxl.load_workbook(io.BytesIO(response.content))
+    assert "Hasil Benchmark" in wb.sheetnames
+    ws = wb["Hasil Benchmark"]
+    assert ws["A1"].value == "VEILUX - LAPORAN EVALUASI BENCHMARK KETAHANAN WATERMARK"
+    assert ws["B7"].value == "JPEG Q90"
+
+
+def test_export_benchmark_xlsx_empty_results_fails():
+    """Pengujian penolakan ekspor jika hasil pengujian kosong."""
+    response = client.post("/api/benchmark/export-xlsx", json={"results": []})
+    assert response.status_code == 400
+    assert "kosong" in response.json()["detail"]
+

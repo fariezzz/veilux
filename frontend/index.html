@@ -678,7 +678,7 @@
     <section class="panel" id="panel-attack" aria-labelledby="tab-attack" hidden>
       <div class="panel-header">
         <div class="panel-heading">
-          <h2 class="panel-title">Uji Ketahanan Terhadap Serangan Citra</h2>
+          <h2 class="panel-title">Uji Kerapuhan Terhadap Serangan Citra</h2>
           <p class="panel-description">Menguji kerapuhan (fragility) skema LSB terhadap manipulasi citra.</p>
         </div>
         <span class="panel-badge">SIMULASI: FRAGILITY STRESS-TEST</span>
@@ -982,6 +982,29 @@
           <div class="attack-result-header" id="attack-result-header"></div>
         </div>
 
+        <!-- Kontrol navigasi inspeksi skenario benchmark -->
+        <div class="benchmark-scenario-nav" id="benchmark-scenario-nav" hidden>
+          <div class="benchmark-scenario-nav-head">
+            <span class="benchmark-scenario-nav-label">INSPEKSI HASIL SKENARIO SERANGAN:</span>
+            <div class="benchmark-scenario-nav-arrows">
+              <button type="button" class="btn btn-secondary btn-compact" id="btn-bench-prev" title="Lihat serangan sebelumnya">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                <span>Sebelumnya</span>
+              </button>
+              <span class="benchmark-scenario-step" id="benchmark-scenario-step">1 / 8</span>
+              <button type="button" class="btn btn-secondary btn-compact" id="btn-bench-next" title="Lihat serangan berikutnya">
+                <span>Selanjutnya</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="benchmark-scenario-pills" id="benchmark-scenario-pills"></div>
+        </div>
+
         <div class="result-images result-images-three">
           <div class="result-image-card">
             <div class="result-image-header">
@@ -1161,8 +1184,51 @@
                 </svg>
                 <span>Unduh CSV</span>
               </button>
+              <button class="btn btn-secondary btn-compact" id="btn-download-benchmark-xlsx">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="8" y1="13" x2="16" y2="13"></line>
+                  <line x1="8" y1="17" x2="16" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span>Unduh Excel (XLSX)</span>
+              </button>
             </div>
           </div>
+
+          <!-- Bagian Visualisasi Grafik Benchmark -->
+          <div class="benchmark-chart-card" id="benchmark-chart-card">
+            <div class="benchmark-chart-header">
+              <div class="benchmark-chart-title-wrap">
+                <span class="benchmark-chart-tag">GRAFIK PERBANDINGAN METRIK</span>
+                <h4 class="benchmark-chart-title">Visualisasi Evaluasi Forensik Antar-Serangan</h4>
+              </div>
+              <div class="benchmark-chart-actions">
+                <div class="benchmark-metric-tabs" role="tablist" aria-label="Pilih Metrik Evaluasi">
+                  <button type="button" class="benchmark-metric-tab benchmark-metric-tab-active" data-metric="psnr">PSNR (dB)</button>
+                  <button type="button" class="benchmark-metric-tab" data-metric="mse">MSE</button>
+                  <button type="button" class="benchmark-metric-tab" data-metric="nc">NC</button>
+                  <button type="button" class="benchmark-metric-tab" data-metric="ber">BER</button>
+                  <button type="button" class="benchmark-metric-tab" data-metric="tamper">Tamper (%)</button>
+                </div>
+                <button type="button" class="btn btn-secondary btn-compact" id="btn-download-benchmark-chart" title="Unduh gambar grafik berformat PNG">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Unduh Grafik (PNG)</span>
+                </button>
+              </div>
+            </div>
+            <div class="benchmark-chart-wrap" id="benchmark-chart-wrap">
+              <svg id="benchmark-chart-svg" viewBox="0 0 800 220" preserveAspectRatio="xMidYMid meet" class="benchmark-chart-svg" aria-label="Grafik visualisasi evaluasi forensik benchmark"></svg>
+              <div class="benchmark-chart-tooltip" id="benchmark-chart-tooltip" hidden></div>
+            </div>
+            <div class="benchmark-chart-legend" id="benchmark-chart-legend"></div>
+          </div>
+
           <div class="benchmark-table-wrap">
             <table class="benchmark-table" id="benchmark-table">
               <thead>

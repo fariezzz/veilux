@@ -1,14 +1,64 @@
-# Veilux - Digital Watermarking & Integrity Verification
+# Veilux - Digital Watermarking & Image Integrity Verification
 
-Veilux adalah aplikasi web untuk penyisipan tanda keaslian citra digital menggunakan teknik **Fragile Watermarking berbasis LSB (Least Significant Bit)** dan deteksi manipulasi citra (*tamper localization*).
+Veilux adalah aplikasi web forensik citra digital untuk penyisipan tanda keaslian (*digital watermarking*) berbasis **Fragile Least Significant Bit (LSB)** yang dilengkapi verifikasi integritas citra dan lokalisasi manipulasi (*tamper detection & localization*) berbasis blok HMAC-SHA256.
+
+Aplikasi ini mendukung dua tipe watermark (teks dan logo biner) serta modul simulasi serangan citra (*attack simulation*) komprehensif lengkap dengan metrik evaluasi imperseptibilitas dan keandalan (PSNR, MSE, NC, BER).
 
 ---
 
-## Arsitektur Sistem
+## Fitur Utama
 
-- **Frontend**: Vanilla JavaScript (ES6+), Semantic HTML5, Vanilla CSS Modern (Workbench UI).
-- **Backend**: Python 3.10+, FastAPI, Uvicorn, Pydantic.
-- **Pengujian**: Pytest, HTTPX TestClient.
+1. **Dual Watermark Payload (Protokol v3)**
+   - **Teks**: Hingga 64 karakter string UTF-8.
+   - **Logo Biner**: Citra logo kustom dinormalisasi otomatis (mempertahankan rasio aspek, *alpha compositing*, konversi grayscale, dan *thresholding* biner 1-bit per piksel).
+2. **Penyisipan LSB Pseudo-Random (PRNG)**
+   - Penyebaran bit payload watermark secara seragam menggunakan kunci rahasia (*secret key*) berbasis PRNG deterministik, mencegah ekstraksi unauthorized.
+3. **Lokalisasi Manipulasi Blok (32×32 Piksel)**
+   - Pembagian citra menjadi grid blok $32 \times 32$ piksel. Setiap blok diautentikasi dengan tag integritas 64-bit HMAC-SHA256 yang disematkan ke kanal LSB.
+   - Menghasilkan visualisasi *Tamper Map* presisi untuk mengidentifikasi area spasial yang diubah (*tampered*).
+   - Tampilan status ganda (*Dual Badges*): status keabsahan payload HMAC dipisahkan secara independen dari status integritas blok citra.
+4. **Laboratorium Simulasi Serangan & Benchmark**
+   - 8 jenis serangan manipulasi citra:
+     - Kompresi JPEG (Kualitas 90, 70, dan 50)
+     - Pemotongan Spasial (*Cropping* 15%)
+     - *Resizing* / Resampling interpolasi ganda
+     - *Gaussian Noise* ($\sigma = 25$)
+     - Modifikasi Kecerahan (*Brightness* 1.6×)
+     - Modifikasi Kontras (*Contrast* 2.0×)
+   - Evaluasi otomatis metrik kualitas dan ketahanan:
+     - **PSNR** (*Peak Signal-to-Noise Ratio*) & **MSE** (*Mean Squared Error*)
+     - **NC** (*Normalized Correlation*) & **BER** (*Bit Error Rate*)
+   - Fitur **Benchmark Seluruh Serangan**: Eksekusi batch otomatis dengan rekapitulasi tabel dan opsi ekspor hasil ke format **Markdown (.md)** atau **CSV (.csv)**.
+5. **Arsitektur Aman & Tanpa Persistensi (In-Memory)**
+   - Seluruh pemrosesan citra, payload, dan secret key berlangsung secara *transient* di memori RAM. Tidak ada penyimpanan berkas citra atau kunci rahasia ke hard disk maupun database.
+
+---
+
+## Arsitektur Sistem & Alur Kerja
+
+```text
+[Citra Asli] + [Payload: Teks / Logo] + [Secret Key]
+                     │
+                     ▼
+       ┌───────────────────────────┐
+       │   Veilux Engine (LSB v3)  │
+       │  - Normalisasi Logo       │
+       │  - HMAC-SHA256 Packaging  │
+       │  - PRNG Shuffling Embed   │
+       │  - Block Tagging (32×32)  │
+       └─────────────┬─────────────┘
+                     │
+                     ▼
+            [Citra Ber-watermark]
+                     │
+       ┌─────────────┴─────────────┐
+       ▼                           ▼
+[Modul Verifikasi/Detect]   [Modul Simulasi Attack]
+ - Ekstraksi Teks / Logo     - JPEG / Crop / Noise / dll
+ - Verifikasi HMAC Global    - Evaluasi PSNR & MSE
+ - Verifikasi Blok (32×32)   - Evaluasi NC & BER
+ - Hasil: Tamper Map         - Benchmark Semua Serangan
+```
 
 ---
 
@@ -18,90 +68,108 @@ Veilux adalah aplikasi web untuk penyisipan tanda keaslian citra digital menggun
 veilux/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py                  # Entrypoint aplikasi FastAPI & konfigurasi CORS
+│   ├── main.py                     # Entrypoint FastAPI, CORS, & registrasi router
 │   ├── api/
 │   │   ├── __init__.py
 │   │   └── routes/
 │   │       ├── __init__.py
-│   │       └── embed.py         # Route handler POST /api/embed & validasi input
+│   │       ├── embed.py            # Endpoint POST /api/embed
+│   │       ├── detect.py           # Endpoint POST /api/detect
+│   │       └── attack.py           # Endpoint POST /api/attack
 │   ├── core/
 │   │   ├── __init__.py
-│   │   └── config.py            # Konfigurasi sistem (ukuran file, tipe MIME, CORS)
+│   │   └── config.py               # Konfigurasi sistem (ukuran berkas, MIME, CORS)
 │   ├── services/
 │   │   ├── __init__.py
-│   │   └── watermark.py         # Engine fragile watermarking LSB v2 & Tamper Map
+│   │   ├── watermark.py            # Mesin inti Fragile LSB, PSNR/MSE, NC/BER, Tamper Map
+│   │   └── logo.py                 # Normalisasi citra logo, bit packing, & protokol v3
 │   └── tests/
 │       ├── __init__.py
-│       ├── test_health.py       # Unit test endpoint /api/health dan /api/embed
-│       └── test_watermark.py    # Unit test engine watermarking LSB v2, block tag & tamper map
+│       ├── test_health.py          # Uji endpoint /api/health
+│       ├── test_embed.py / ...     # Uji fungsionalitas embed, detect, & attack
+│       ├── test_logo.py            # Uji normalisasi & representasi biner logo
+│       ├── test_logo_integration.py# Uji integrasi end-to-end watermark logo
+│       └── test_watermark.py       # Uji LSB engine, manipulasi blok, & tamper map
 ├── frontend/
-│   ├── index.html               # Antarmuka web pengguna
-│   ├── app.js                   # Logika interaksi frontend dan pemanggilan API
-│   └── style.css                # Desain visual workbench
-├── requirements.txt             # Dependensi pustaka Python
-├── .gitignore                   # Daftar pengabaian berkas Git
-└── README.md                    # Dokumentasi proyek
+│   ├── index.html                  # Antarmuka web pengguna (Workbench forensik)
+│   ├── app.js                      # Logika interaktivitas, kanvas, visualisasi, & API caller
+│   └── style.css                   # Tata letak & styling tema (Mode Terang/Gelap)
+├── requirements.txt                # Dependensi pustaka Python backend
+└── README.md                       # Dokumentasi resmi proyek
 ```
 
 ---
 
-## Backend
+## Persyaratan Lingkungan
 
-Backend Veilux menyediakan REST API berbasis FastAPI yang berjalan pada `http://localhost:8000`.
+- **Python**: Versi 3.10 atau lebih tinggi (direkomendasikan Python 3.11+)
+- **Browser Modern**: Google Chrome, Mozilla Firefox, Microsoft Edge, atau Safari dengan dukungan ES6+ dan HTML5 Canvas.
 
-### 1. Prasyarat Sistem
-- Python 3.10 atau versi yang lebih baru
-- Pip (Python Package Manager)
+Dependensi utama Python (tercantum di `requirements.txt`):
+- `fastapi` & `uvicorn` (REST API framework & server ASGI)
+- `pillow` (Pemrosesan citra digital)
+- `numpy` (Operasi matriks dan bitwise presisi tinggi)
+- `python-multipart` (Penanganan unggahan form berkas multipart)
+- `pytest` & `httpx` (Automated testing suite)
 
-### 2. Instalasi Dependensi
-Jalankan perintah berikut di root repositori:
+---
+
+## Panduan Instalasi & Menjalankan Aplikasi
+
+### 1. Pasang Dependensi Backend
+
+Buka terminal di root direktori proyek `veilux`:
 
 ```bash
-# Opsional: Buat dan aktifkan virtual environment
+# Buat virtual environment (disarankan)
 python -m venv .venv
+
+# Aktivasi virtual environment
 # Windows (PowerShell):
 .venv\Scripts\Activate.ps1
-# Linux / macOS:
+# Windows (CMD):
+.venv\Scripts\activate.bat
+# Linux / macOS / WSL:
 source .venv/bin/activate
 
-# Pasang pustaka yang diperlukan
+# Pasang dependensi pustaka
 pip install -r requirements.txt
 ```
 
-### 3. Menjalankan Backend
-Jalankan server pengembangan FastAPI dari root direktori proyek:
+### 2. Jalankan Server Backend
+
+Jalankan perintah berikut untuk mengaktifkan server FastAPI:
 
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
-*Atau menggunakan pemanggilan modul Python:*
-```bash
-python -m uvicorn backend.main:app --reload --port 8000
-```
 
-Backend akan aktif di:
-- **API Base**: `http://localhost:8000/api`
-- **Interactive Swagger Docs**: `http://localhost:8000/docs`
-- **Alternative ReDoc**: `http://localhost:8000/redoc`
+Server backend aktif di:
+- **Base URL API**: `http://localhost:8000/api`
+- **Dokumentasi Interaktif (Swagger UI)**: `http://localhost:8000/docs`
+- **Dokumentasi Alternatif (ReDoc)**: `http://localhost:8000/redoc`
 
-### 4. Menjalankan Pengujian (Testing)
-Untuk menjalankan seluruh unit test otomatis:
+### 3. Jalankan Antarmuka Pengguna (Frontend)
 
-```bash
-pytest
-```
-*Atau menggunakan modul Python:*
-```bash
-python -m pytest
-```
+Antarmuka frontend menggunakan arsitektur Vanilla HTML/CSS/JS tanpa kebutuhan proses build:
+- Buka berkas `frontend/index.html` langsung di browser, atau
+- Gunakan ekstensi *Live Server* di VS Code, atau
+- Jalankan web server lokal sederhana:
+  ```bash
+  # Dari folder frontend:
+  cd frontend
+  python -m http.server 5500
+  ```
+  Kemudian akses `http://localhost:5500` di peramban web.
 
 ---
 
-## Daftar Endpoint API
+## Dokumentasi API (Endpoints)
 
-### 1. `GET /api/health`
-Memeriksa status ketersediaan backend.
-- **Respons (200 OK):**
+### 1. Health Check
+- **Endpoint**: `GET /api/health`
+- **Deskripsi**: Memeriksa ketersediaan layanan backend.
+- **Respons (200 OK)**:
   ```json
   {
     "status": "ok",
@@ -109,32 +177,83 @@ Memeriksa status ketersediaan backend.
   }
   ```
 
-### 2. `POST /api/embed`
-Penyisipan watermark ke dalam bit LSB kanal RGB citra.
+### 2. Penyisipan Watermark (Embed)
+- **Endpoint**: `POST /api/embed`
 - **Content-Type**: `multipart/form-data`
-- **Parameter Form:**
-  - `image` (*File*): Berkas citra format `image/png` atau `image/jpeg` (maksimal 10 MB).
-  - `watermark` (*String*): Teks payload watermark (maksimal 64 karakter, tidak boleh kosong).
-  - `secret_key` (*String*): Kunci rahasia pembangkit urutan acak PRNG (tidak boleh kosong).
-- **Validasi & Penanganan Error:**
-  - Format selain PNG/JPEG ditolak dengan HTTP 400.
-  - Berkas rusak atau tidak dapat dibaca Pillow ditolak dengan HTTP 400.
-  - Berkas melebihi 10 MB atau kosong ditolak dengan HTTP 400.
-  - Watermark kosong atau melebihi 64 karakter ditolak dengan HTTP 400.
-  - Secret key kosong ditolak dengan HTTP 400.
-  - Kapasitas kanal citra tidak mencukupi ditolak dengan HTTP 422.
-- **Respons Sukses (200 OK):**
+- **Parameter**:
+  - `image` (*File, Required*): Berkas citra format PNG atau JPEG (maksimal 10 MB).
+  - `secret_key` (*String, Required*): Kunci rahasia pembangkit urutan acak PRNG.
+  - `watermark_type` (*String, Optional*): `"text"` (default) atau `"logo"`.
+  - `watermark` (*String, Opsional jika teks*): String teks watermark (maksimal 64 karakter).
+  - `logo` (*File, Opsional jika logo*): Berkas citra logo yang akan disematkan.
+- **Respons (200 OK)**:
   ```json
   {
     "original_image": "data:image/png;base64,...",
     "watermarked_image": "data:image/png;base64,...",
-    "psnr": 75.12,
-    "mse": 0.002
+    "psnr": 74.85,
+    "mse": 0.0021,
+    "watermark_type": "text",
+    "logo_width": null,
+    "logo_height": null,
+    "binary_logo_image": null
   }
   ```
 
+### 3. Deteksi & Verifikasi (Detect)
+- **Endpoint**: `POST /api/detect`
+- **Content-Type**: `multipart/form-data`
+- **Parameter**:
+  - `image` (*File, Required*): Citra yang akan diverifikasi keasliannya.
+  - `secret_key` (*String, Required*): Kunci rahasia PRNG yang digunakan saat proses embed.
+  - `original_watermark` (*String, Optional*): Teks referensi untuk perhitungan metrik NC & BER.
+  - `original_logo` (*File, Optional*): Berkas logo referensi untuk perhitungan NC & BER.
+- **Respons (200 OK)**:
+  ```json
+  {
+    "watermark_detected": true,
+    "watermark_type": "TEXT",
+    "watermark": "RahasiaNegara",
+    "logo_image": null,
+    "logo_width": null,
+    "logo_height": null,
+    "nc": 1.0,
+    "ber": 0.0,
+    "valid_blocks": 64,
+    "total_blocks": 64,
+    "tamper_ratio": 0.0,
+    "input_image": "data:image/png;base64,...",
+    "tamper_map": "data:image/png;base64,..."
+  }
+  ```
+
+### 4. Simulasi Serangan (Attack)
+- **Endpoint**: `POST /api/attack`
+- **Content-Type**: `multipart/form-data`
+- **Parameter**:
+  - `image` (*File, Required*): Citra ber-watermark.
+  - `attack_type` (*String, Required*): Salah satu dari `jpeg_90`, `jpeg_70`, `jpeg_50`, `crop`, `resize`, `noise`, `brightness`, `contrast`.
+  - `secret_key` (*String, Required*): Kunci rahasia PRNG.
+  - `original_watermark` (*String, Optional*): Teks payload asli untuk evaluasi NC/BER.
+  - `original_logo` (*File, Optional*): Logo asli untuk evaluasi NC/BER.
+- **Respons (200 OK)**: Mengembalikan perbandingan citra sebelum dan sesudah serangan, nilai PSNR/MSE serangan, status deteksi watermark, serta Tamper Map pasca-serangan.
+
 ---
 
-## Kebijakan Keamanan Data
-- **Pemrosesan Transient**: Seluruh berkas citra dan kunci rahasia diproses murni di dalam RAM (in-memory) selama siklus *request-response*.
-- **Tanpa Persistensi**: Berkas unggahan dan *secret key* tidak pernah disimpan ke hard disk, basis data, file log, maupun repositori kode sumber.
+## Pengujian Otomatis (Automated Testing)
+
+Suite pengujian mencakup 111 unit & integration tests yang menguji seluruh fungsionalitas algoritma LSB, manipulasi blok, normalisasi logo, ketahanan terhadap serangan, dan penanganan error endpoint.
+
+Jalankan test suite menggunakan pytest:
+
+```bash
+pytest
+```
+
+---
+
+## Kebijakan Privasi & Keamanan Data
+
+- **In-Memory Execution**: Pemrosesan citra digital, hashing, dan payload watermark diproses murni pada memori dinamis (RAM).
+- **Zero Disk Footprint**: Tidak ada berkas sementara (*temporary files*), citra pengguna, ataupun *secret key* yang disimpan ke media penyimpanan permanen.
+- **Content Security Policy (CSP)**: Frontend dilengkapi konfigurasi CSP ketat untuk memitigasi serangan Cross-Site Scripting (XSS) dan injeksi data eksternal.

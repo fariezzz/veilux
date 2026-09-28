@@ -1,5 +1,6 @@
 """Watermarking service package."""
 
+from backend.services.export_excel import generate_benchmark_xlsx
 from backend.services.logo import (
     WatermarkType,
     normalize_logo,
