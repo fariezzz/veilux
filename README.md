@@ -311,14 +311,21 @@ Arsitektur Veilux dirancang terpisah antara Frontend (*Static Web*) dan Backend 
 
 ## Pengujian Otomatis (Automated Testing)
 
-Suite pengujian mencakup **113 unit & integration tests** yang menguji seluruh fungsionalitas algoritma LSB, manipulasi blok, normalisasi logo, ketahanan terhadap serangan, ekspor Excel, dan penanganan error endpoint.
+Suite pengujian inti (*Core Test Suite*) mencakup **12 unit & integration tests** yang ringkas, terfokus, dan memvalidasi fungsi-fungsi esensial algoritma:
+1. Penyisipan LSB Fragile (Teks & Logo Biner)
+2. Pembangkitan posisi pseudo-random deterministik (PRNG)
+3. Keamanan autentikasi dan integritas data (HMAC-SHA256)
+4. Deteksi dan ekstraksi Blind Mode
+5. Lokalisasi manipulasi blok (Tamper Map)
+6. Metrik kualitas citra & korelasi (PSNR, MSE, NC, BER)
+7. Simulasi serangan citra (JPEG) dan ekspor laporan Excel (.xlsx)
 
-Jalankan test suite menggunakan pytest:
+Jalankan pengujian menggunakan pytest:
 
 ```bash
 pytest
 ```
-*Atau menggunakan Python executable:*
+*Atau menggunakan pemanggilan modul:*
 ```bash
 python -m pytest
 ```
