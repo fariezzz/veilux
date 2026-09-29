@@ -15,10 +15,11 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Konfigurasi middleware CORS agar frontend lokal dapat mengakses backend
+# Konfigurasi middleware CORS agar frontend lokal maupun Vercel dapat mengakses backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

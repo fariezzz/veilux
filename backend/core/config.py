@@ -1,5 +1,6 @@
 """Konfigurasi aplikasi Veilux backend."""
 
+import os
 from typing import List
 
 
@@ -15,8 +16,8 @@ class Settings:
     # Batasan validasi watermark
     MAX_WATERMARK_LENGTH: int = 64
 
-    # CORS configuration — wildcard ("*") tidak boleh dipakai bersama allow_credentials=True
-    CORS_ORIGINS: List[str] = [
+    # Default local origins
+    _DEFAULT_ORIGINS: List[str] = [
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:5000",
@@ -28,6 +29,16 @@ class Settings:
         "http://127.0.0.1:5500",
         "http://127.0.0.1:8000",
     ]
+
+    @property
+    def CORS_ORIGINS(self) -> List[str]:
+        """Ambil daftar CORS origin, mendukung variabel lingkungan CORS_ALLOWED_ORIGINS (dipisah koma)."""
+        env_origins = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+        if not env_origins:
+            return list(self._DEFAULT_ORIGINS)
+        custom_list = [o.strip() for o in env_origins.split(",") if o.strip()]
+        return list(dict.fromkeys(self._DEFAULT_ORIGINS + custom_list))
+
 
 
 settings = Settings()

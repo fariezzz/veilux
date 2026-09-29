@@ -1,6 +1,18 @@
 /* Logika aplikasi frontend Veilux (JavaScript murni tanpa framework) */
 
-const API_BASE = 'http://localhost:8000/api';
+// Konfigurasi dinamis alamat Base API backend:
+// Prioritas: window.__API_BASE__ -> localStorage 'veilux_api_base' -> default Render / localhost
+const DEFAULT_API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:8000/api'
+  : 'https://veilux-z3uf.onrender.com/api';
+
+const API_BASE = (function () {
+  try {
+    const custom = localStorage.getItem('veilux_api_base');
+    if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
+  } catch (e) {}
+  return window.__API_BASE__ || DEFAULT_API_BASE;
+})();
 
 // Status data aplikasi
 const state = {

@@ -187,6 +187,44 @@ Antarmuka frontend menggunakan arsitektur Vanilla HTML/CSS/JS tanpa kebutuhan pr
 
 ---
 
+## Panduan Deployment (Cloud)
+
+Arsitektur Veilux dirancang terpisah antara Frontend (*Static Web*) dan Backend (*REST API Python*), sehingga sangat ideal dideploy ke kombinasi **Vercel** (Frontend) dan **Render** (Backend).
+
+### A. Deploy Backend ke Render (Web Service)
+1. Buat akun dan masuk ke dasbor [Render.com](https://render.com).
+2. Klik **New +** $\to$ **Web Service**, hubungkan ke repositori GitHub proyek Veilux.
+3. Konfigurasi parameter Web Service:
+   - **Name**: `veilux-backend`
+   - **Environment**: `Python`
+   - **Region**: `Singapore` atau `Oregon`
+   - **Branch**: `main`
+   - **Build Command**: `pip install --upgrade pip && pip install -r requirements.txt`
+   - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: `Free`
+4. Tambahkan *Environment Variables*:
+   - `PYTHON_VERSION`: `3.11.9`
+   - `CORS_ALLOWED_ORIGINS`: URL domain frontend Vercel Anda (misal: `https://veilux.vercel.app`)
+5. Klik **Create Web Service**. Backend akan aktif di URL seperti `https://veilux-z3uf.onrender.com`.
+
+*(Alternatif: Gunakan blueprint otomatis berkas `render.yaml` melalui menu **New +** $\to$ **Blueprint** di Render).*
+
+### B. Deploy Frontend ke Vercel
+1. Masuk ke dasbor [Vercel.com](https://vercel.com).
+2. Klik **Add New...** $\to$ **Project**, impor repositori GitHub proyek Veilux.
+3. Konfigurasi pengaturan proyek:
+   - **Framework Preset**: `Other`
+   - **Root Directory**: `./` (berkas `vercel.json` akan otomatis merutekan ke folder `frontend`)
+4. Klik **Deploy**.
+5. Setelah selesai, atur alamat backend API jika berbeda dari URL default Render:
+   - Buka console browser di domain Vercel Anda, jalankan:
+     ```javascript
+     localStorage.setItem('veilux_api_base', 'https://nama-backend-anda.onrender.com/api');
+     ```
+     Atau ubah default URL `DEFAULT_API_BASE` pada baris 5 `frontend/app.js` menjadi URL layanan Render Anda.
+
+---
+
 ## Dokumentasi API (Endpoints)
 
 ### 1. Health Check
