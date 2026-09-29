@@ -2,7 +2,22 @@
 
 Veilux adalah aplikasi web forensik citra digital untuk penyisipan tanda keaslian (*digital watermarking*) berbasis **Fragile Least Significant Bit (LSB)** yang dilengkapi verifikasi integritas citra dan lokalisasi manipulasi (*tamper detection & localization*) berbasis blok HMAC-SHA256.
 
-Aplikasi ini mendukung dua tipe watermark (teks dan logo biner) serta modul simulasi serangan citra (*attack simulation*) komprehensif lengkap dengan metrik evaluasi imperseptibilitas dan keandalan (PSNR, MSE, NC, BER).
+Aplikasi ini mendukung dua tipe watermark (teks dan logo biner) serta modul simulasi serangan citra (*attack simulation*) komprehensif lengkap dengan metrik evaluasi imperseptibilitas dan keandalan (PSNR, MSE, NC, BER), visualisasi grafik SVG, serta utilitas ekspor hasil uji ke format Markdown, CSV, dan Excel (.xlsx).
+
+Proyek ini dikembangkan untuk memenuhi Tugas Proyek Aplikasi Kriptografi (Topik C: Digital Watermarking) pada Mata Kuliah Keamanan Informasi, Program Studi Informatika, Fakultas Teknik, Universitas Siliwangi.
+
+---
+
+## Tim Pengembang (Kelompok)
+
+| Nama Anggota | NPM | Kelas |
+|---|---|:---:|
+| **Muhammad Fariez Riziq Ilham** (Ketua) | 247006111146 | E |
+| **Achmad Adil Arasy Darmawan** | 247006111128 | E |
+| **Fadhli Fajrial Habibie** | 247006111142 | E |
+
+- **Dosen Pengampu**: Ir. Alam Rahmatulloh, S.T., M.T., MCE., IPM.
+- **Institusi**: Universitas Siliwangi
 
 ---
 
@@ -10,27 +25,32 @@ Aplikasi ini mendukung dua tipe watermark (teks dan logo biner) serta modul simu
 
 1. **Dual Watermark Payload (Protokol v3)**
    - **Teks**: Hingga 64 karakter string UTF-8.
-   - **Logo Biner**: Citra logo kustom dinormalisasi otomatis (mempertahankan rasio aspek, *alpha compositing*, konversi grayscale, dan *thresholding* biner 1-bit per piksel).
+   - **Logo Biner**: Citra logo kustom dinormalisasi otomatis (mempertahankan rasio aspek, *alpha compositing*, konversi grayscale, dan *thresholding* biner 1-bit per piksel) dengan metadata dimensi spasial ($W \times H$).
 2. **Penyisipan LSB Pseudo-Random (PRNG)**
-   - Penyebaran bit payload watermark secara seragam menggunakan kunci rahasia (*secret key*) berbasis PRNG deterministik, mencegah ekstraksi unauthorized.
+   - Penyebaran bit payload watermark secara seragam menggunakan kunci rahasia (*secret key*) berbasis PRNG deterministik (SHA-256 + Fisher-Yates), mencegah ekstraksi unauthorized.
 3. **Lokalisasi Manipulasi Blok (32×32 Piksel)**
-   - Pembagian citra menjadi grid blok $32 \times 32$ piksel. Setiap blok diautentikasi dengan tag integritas 64-bit HMAC-SHA256 yang disematkan ke kanal LSB.
-   - Menghasilkan visualisasi *Tamper Map* presisi untuk mengidentifikasi area spasial yang diubah (*tampered*).
+   - Pembagian citra menjadi grid blok $32 \times 32$ piksel. Setiap blok diautentikasi dengan tag integritas 64-bit HMAC-SHA256 yang disematkan ke kanal LSB yang di-mask (`& 0xFE`).
+   - Menghasilkan visualisasi *Tamper Map* presisi (putih = utuh, merah = rusak) dan metrik *Tamper Ratio*.
    - Tampilan status ganda (*Dual Badges*): status keabsahan payload HMAC dipisahkan secara independen dari status integritas blok citra.
 4. **Laboratorium Simulasi Serangan & Benchmark**
-   - 8 jenis serangan manipulasi citra:
+   - 8 jenis serangan manipulasi citra terkalibrasi:
      - Kompresi JPEG (Kualitas 90, 70, dan 50)
-     - Pemotongan Spasial (*Cropping* 15%)
-     - *Resizing* / Resampling interpolasi ganda
-     - *Gaussian Noise* ($\sigma = 25$)
+     - Pemotongan Spasial (*Cropping* 15% sudut kanan bawah)
+     - *Resizing* / Resampling interpolasi ganda (downsample 50% lalu upsample)
+     - *Gaussian Noise* ($\sigma = 25$, seed deterministik 42)
      - Modifikasi Kecerahan (*Brightness* 1.6×)
      - Modifikasi Kontras (*Contrast* 2.0×)
    - Evaluasi otomatis metrik kualitas dan ketahanan:
      - **PSNR** (*Peak Signal-to-Noise Ratio*) & **MSE** (*Mean Squared Error*)
-     - **NC** (*Normalized Correlation*) & **BER** (*Bit Error Rate*)
-   - Fitur **Benchmark Seluruh Serangan**: Eksekusi batch otomatis dengan rekapitulasi tabel dan opsi ekspor hasil ke format **Markdown (.md)** atau **CSV (.csv)**.
-5. **Arsitektur Aman & Tanpa Persistensi (In-Memory)**
-   - Seluruh pemrosesan citra, payload, dan secret key berlangsung secara *transient* di memori RAM. Tidak ada penyimpanan berkas citra atau kunci rahasia ke hard disk maupun database.
+     - **NC** (*Normalized Correlation* berbasis domain bipolar $\{-1, +1\}$) & **BER** (*Bit Error Rate*)
+   - Fitur **Benchmark Seluruh Serangan**: Eksekusi batch otomatis 8 serangan secara sekuensial.
+   - **Grafik Metrik SVG Interaktif**: Visualisasi perbandingan metrik (PSNR, MSE, NC, BER, Tamper Ratio) berbasis vektor SVG bebas *context loss* dan dapat diunduh sebagai gambar PNG.
+   - **Navigasi Inspeksi Skenario (Pills 1–8)**: Beralih memeriksa citra sebelum, setelah, dan tamper map dari setiap skenario secara instan.
+   - **Ekspor Forensik**: Opsi ekspor tabel rekapitulasi ke format **Markdown (.md)**, **CSV (.csv)**, dan **Microsoft Excel (.xlsx)** terformat rapi.
+5. **Mode Blind Watermarking (Fitur Pengayaan)**
+   - Ekstraksi dan deteksi manipulasi berjalan murni tanpa membutuhkan citra asli (*cover image*). Masukan watermark referensi hanya bersifat opsional untuk pengukuran metrik korelasi NC & BER.
+6. **Arsitektur Aman & Tanpa Persistensi (In-Memory)**
+   - Seluruh pemrosesan citra, payload, dan secret key berlangsung secara *transient* di memori RAM. Tidak ada penyimpanan berkas citra atau kunci rahasia ke hard disk maupun database (*zero disk footprint*).
 
 ---
 
@@ -54,10 +74,10 @@ Aplikasi ini mendukung dua tipe watermark (teks dan logo biner) serta modul simu
        ┌─────────────┴─────────────┐
        ▼                           ▼
 [Modul Verifikasi/Detect]   [Modul Simulasi Attack]
- - Ekstraksi Teks / Logo     - JPEG / Crop / Noise / dll
+ - Ekstraksi Teks / Logo     - 8 Jenis Serangan
  - Verifikasi HMAC Global    - Evaluasi PSNR & MSE
- - Verifikasi Blok (32×32)   - Evaluasi NC & BER
- - Hasil: Tamper Map         - Benchmark Semua Serangan
+ - Verifikasi Blok (32×32)   - Evaluasi NC & BER Bipolar
+ - Hasil: Tamper Map         - Benchmark, Grafik & XLSX
 ```
 
 ---
@@ -68,31 +88,33 @@ Aplikasi ini mendukung dua tipe watermark (teks dan logo biner) serta modul simu
 veilux/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py                     # Entrypoint FastAPI, CORS, & registrasi router
+│   ├── main.py                     # Entrypoint FastAPI, konfigurasi CORS, & registrasi router
 │   ├── api/
 │   │   ├── __init__.py
 │   │   └── routes/
 │   │       ├── __init__.py
 │   │       ├── embed.py            # Endpoint POST /api/embed
 │   │       ├── detect.py           # Endpoint POST /api/detect
-│   │       └── attack.py           # Endpoint POST /api/attack
+│   │       └── attack.py           # Endpoint POST /api/attack & /api/benchmark/export-xlsx
 │   ├── core/
 │   │   ├── __init__.py
 │   │   └── config.py               # Konfigurasi sistem (ukuran berkas, MIME, CORS)
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── watermark.py            # Mesin inti Fragile LSB, PSNR/MSE, NC/BER, Tamper Map
-│   │   └── logo.py                 # Normalisasi citra logo, bit packing, & protokol v3
+│   │   ├── logo.py                 # Normalisasi citra logo, bit packing, & protokol v3
+│   │   └── export_excel.py         # Generator dokumen spreadsheet openpyxl (.xlsx)
 │   └── tests/
 │       ├── __init__.py
 │       ├── test_health.py          # Uji endpoint /api/health
-│       ├── test_embed.py / ...     # Uji fungsionalitas embed, detect, & attack
+│       ├── test_watermark.py       # Uji LSB engine, manipulasi blok, & tamper map
+│       ├── test_detect.py          # Uji deteksi tamper dan verifikasi secret key
+│       ├── test_attack.py          # Uji 8 simulasi serangan & ekspor XLSX
 │       ├── test_logo.py            # Uji normalisasi & representasi biner logo
-│       ├── test_logo_integration.py# Uji integrasi end-to-end watermark logo
-│       └── test_watermark.py       # Uji LSB engine, manipulasi blok, & tamper map
+│       └── test_logo_integration.py# Uji integrasi end-to-end watermark logo
 ├── frontend/
 │   ├── index.html                  # Antarmuka web pengguna (Workbench forensik)
-│   ├── app.js                      # Logika interaktivitas, kanvas, visualisasi, & API caller
+│   ├── app.js                      # Logika interaktivitas, kanvas, grafik SVG, & API caller
 │   └── style.css                   # Tata letak & styling tema (Mode Terang/Gelap)
 ├── requirements.txt                # Dependensi pustaka Python backend
 └── README.md                       # Dokumentasi resmi proyek
@@ -103,12 +125,13 @@ veilux/
 ## Persyaratan Lingkungan
 
 - **Python**: Versi 3.10 atau lebih tinggi (direkomendasikan Python 3.11+)
-- **Browser Modern**: Google Chrome, Mozilla Firefox, Microsoft Edge, atau Safari dengan dukungan ES6+ dan HTML5 Canvas.
+- **Browser Modern**: Google Chrome, Mozilla Firefox, Microsoft Edge, atau Safari dengan dukungan ES6+ dan SVG DOM.
 
 Dependensi utama Python (tercantum di `requirements.txt`):
 - `fastapi` & `uvicorn` (REST API framework & server ASGI)
 - `pillow` (Pemrosesan citra digital)
 - `numpy` (Operasi matriks dan bitwise presisi tinggi)
+- `openpyxl` (Generator dokumen spreadsheet Excel .xlsx)
 - `python-multipart` (Penanganan unggahan form berkas multipart)
 - `pytest` & `httpx` (Automated testing suite)
 
@@ -204,7 +227,7 @@ Antarmuka frontend menggunakan arsitektur Vanilla HTML/CSS/JS tanpa kebutuhan pr
 - **Endpoint**: `POST /api/detect`
 - **Content-Type**: `multipart/form-data`
 - **Parameter**:
-  - `image` (*File, Required*): Citra yang akan diverifikasi keasliannya.
+  - `image` (*File, Required*): Citra yang akan diverifikasi keasliannya (*Blind Mode*).
   - `secret_key` (*String, Required*): Kunci rahasia PRNG yang digunakan saat proses embed.
   - `original_watermark` (*String, Optional*): Teks referensi untuk perhitungan metrik NC & BER.
   - `original_logo` (*File, Optional*): Berkas logo referensi untuk perhitungan NC & BER.
@@ -213,7 +236,7 @@ Antarmuka frontend menggunakan arsitektur Vanilla HTML/CSS/JS tanpa kebutuhan pr
   {
     "watermark_detected": true,
     "watermark_type": "TEXT",
-    "watermark": "RahasiaNegara",
+    "watermark": "247006111146",
     "logo_image": null,
     "logo_width": null,
     "logo_height": null,
@@ -238,16 +261,28 @@ Antarmuka frontend menggunakan arsitektur Vanilla HTML/CSS/JS tanpa kebutuhan pr
   - `original_logo` (*File, Optional*): Logo asli untuk evaluasi NC/BER.
 - **Respons (200 OK)**: Mengembalikan perbandingan citra sebelum dan sesudah serangan, nilai PSNR/MSE serangan, status deteksi watermark, serta Tamper Map pasca-serangan.
 
+### 5. Ekspor Lembar Kerja Excel Benchmark (Export XLSX)
+- **Endpoint**: `POST /api/benchmark/export-xlsx`
+- **Content-Type**: `application/json`
+- **Parameter Body**:
+  - `watermark_type` (*String, Optional*): `"TEXT"` atau `"LOGO"`.
+  - `results` (*Array of Object, Required*): Seluruh data baris hasil pengujian 8 serangan.
+- **Respons (200 OK)**: Aliran biner berkas `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` siap unduh.
+
 ---
 
 ## Pengujian Otomatis (Automated Testing)
 
-Suite pengujian mencakup 111 unit & integration tests yang menguji seluruh fungsionalitas algoritma LSB, manipulasi blok, normalisasi logo, ketahanan terhadap serangan, dan penanganan error endpoint.
+Suite pengujian mencakup **113 unit & integration tests** yang menguji seluruh fungsionalitas algoritma LSB, manipulasi blok, normalisasi logo, ketahanan terhadap serangan, ekspor Excel, dan penanganan error endpoint.
 
 Jalankan test suite menggunakan pytest:
 
 ```bash
 pytest
+```
+*Atau menggunakan Python executable:*
+```bash
+python -m pytest
 ```
 
 ---
